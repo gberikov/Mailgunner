@@ -35,5 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   appears in the result or the error. Invalid input (no sender, no recipient, or no body) throws
   `ArgumentException` before any request is issued, and a canceled token surfaces
   `OperationCanceledException`.
+- Templated sending: `MailgunMessage` gains `Template` (stored-template name), `TemplateVersion`
+  (optional pinned version), `GenerateTextFromTemplate` (request a generated plain-text part), and
+  `TemplateVariables` (global variables applied to the whole send). These are emitted as the
+  `template`, `t:version`, `t:text=yes`, and `t:variables` fields respectively; `t:variables` carries
+  the variables as a single JSON object (any JSON-representable value type), and the optional fields
+  are omitted when unset/empty. A message must be either templated or inline — supplying both a
+  `Template` and an inline `Text`/`Html` body (or template data without a `Template` name) throws
+  `ArgumentException` before any request. Plain sends are unchanged.
 
 [Unreleased]: https://github.com/gberikov/Mailgunner/commits/master

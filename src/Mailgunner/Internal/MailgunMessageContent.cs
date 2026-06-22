@@ -54,6 +54,26 @@ internal static class MailgunMessageContent
             Add(content, "html", message.Html!);
         }
 
+        if (!string.IsNullOrWhiteSpace(message.Template))
+        {
+            Add(content, "template", message.Template!);
+
+            if (!string.IsNullOrWhiteSpace(message.TemplateVersion))
+            {
+                Add(content, "t:version", message.TemplateVersion!);
+            }
+
+            if (message.GenerateTextFromTemplate)
+            {
+                Add(content, "t:text", "yes");
+            }
+
+            if (message.TemplateVariables.Count > 0)
+            {
+                Add(content, "t:variables", System.Text.Json.JsonSerializer.Serialize(message.TemplateVariables));
+            }
+        }
+
         return content;
     }
 
@@ -70,10 +90,31 @@ internal static class MailgunMessageContent
                 "At least one recipient across To, Cc, or Bcc is required.", nameof(message));
         }
 
-        if (string.IsNullOrEmpty(message.Text) && string.IsNullOrEmpty(message.Html))
+        var hasBody = !string.IsNullOrEmpty(message.Text) || !string.IsNullOrEmpty(message.Html);
+        var hasTemplate = !string.IsNullOrWhiteSpace(message.Template);
+
+        if (!hasBody && !hasTemplate)
         {
             throw new System.ArgumentException(
-                "At least one body part (Text or Html) is required.", nameof(message));
+                "At least one body part (Text or Html) or a Template name is required.", nameof(message));
+        }
+
+        if (hasBody && hasTemplate)
+        {
+            throw new System.ArgumentException(
+                "A message cannot have both a Template and an inline body (Text or Html); supply one or the other.",
+                nameof(message));
+        }
+
+        var hasTemplateData = message.TemplateVariables.Count > 0
+            || !string.IsNullOrWhiteSpace(message.TemplateVersion)
+            || message.GenerateTextFromTemplate;
+
+        if (hasTemplateData && !hasTemplate)
+        {
+            throw new System.ArgumentException(
+                "Template variables, a template version, or a generated-text request require a Template name.",
+                nameof(message));
         }
     }
 
