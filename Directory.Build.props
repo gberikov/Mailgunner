@@ -1,0 +1,51 @@
+<Project>
+
+  <!-- Shared MSBuild properties inherited by every project in the repository. -->
+
+  <!-- Language & quality gates (US2) -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>Recommended</AnalysisMode>
+    <!-- Treat NuGet audit advisories as warnings (not build-breaking). -->
+    <WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
+  </PropertyGroup>
+
+  <!-- Shared package identity & metadata (US3); applied to packable projects -->
+  <PropertyGroup>
+    <Authors>Gany Berikov</Authors>
+    <Company>Gany Berikov</Company>
+    <Product>Mailgunner</Product>
+    <Copyright>Copyright (c) 2026 Gany Berikov</Copyright>
+    <Description>Lightweight, modern, unofficial .NET client for the Mailgun (Sinch) REST API, focused on bulk personalized email delivery.</Description>
+    <PackageTags>mailgun;sinch;email;transactional-email;smtp;mail</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/gberikov/Mailgunner</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/gberikov/Mailgunner</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <!-- Pre-1.0 foundation; release versions are derived from v* git tags in CI. -->
+    <VersionPrefix>0.1.0</VersionPrefix>
+  </PropertyGroup>
+
+  <!-- Reproducible, source-linked builds (US3) -->
+  <PropertyGroup>
+    <Deterministic>true</Deterministic>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <!--
+      SourceLink for GitHub is provided implicitly by the .NET SDK (8+).
+      Do NOT add a Microsoft.SourceLink.GitHub PackageReference — it silently disables it.
+      ContinuousIntegrationBuild is enabled only on CI (deterministic source paths).
+    -->
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true' or '$(TF_BUILD)' == 'true' or '$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+</Project>
