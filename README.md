@@ -24,6 +24,48 @@ dotnet add package Mailgunner
 
 > Not yet published while the library is in its foundation phase.
 
+## Getting started
+
+Register the client into your dependency-injection container with a single call, supplying your
+Mailgun domain, a sending key, and a region. Resolving `IMailgunnerClient` then yields a ready
+instance whose requests target the correct regional host and carry HTTP Basic authentication.
+
+```csharp
+using Microsoft.Extensions.DependencyInjection;
+using Mailgunner;
+
+// Explicit settings:
+services.AddMailgunner(
+    domain: "mg.example.com",
+    sendingKey: configuration["Mailgun:SendingKey"]!,
+    region: MailgunRegion.Eu);
+
+// …or configure via a delegate (e.g. bound from configuration):
+services.AddMailgunner(options =>
+{
+    options.Domain = configuration["Mailgun:Domain"]!;
+    options.SendingKey = configuration["Mailgun:SendingKey"]!;
+    options.Region = MailgunRegion.Us;
+});
+
+// Later, anywhere DI is available:
+var client = serviceProvider.GetRequiredService<IMailgunnerClient>();
+```
+
+Prefer a **Domain Sending Key** over your primary account key, and supply it from configuration
+or environment — never hard-code it.
+
+Invalid configuration (a missing/blank domain or sending key, or an unspecified/unrecognized
+region) is rejected when the host starts, with a clear error that names the offending setting.
+
+### Regions
+
+The region selects the API host: `MailgunRegion.Us` → `https://api.mailgun.net`,
+`MailgunRegion.Eu` → `https://api.eu.mailgun.net`. The region and the sending domain are
+independent: if you configure a region that does **not** match where your domain is hosted, the
+client still builds, but requests go to a host where the domain is not found and Mailgun
+responds with **HTTP 404**. Make sure the region matches your domain's region.
+
 ## Building from source
 
 Requires a [.NET SDK](https://dotnet.microsoft.com/download) matching `global.json`
@@ -51,3 +93,9 @@ Tests run fully offline — no network access or Mailgun credentials are require
 
 - Changes are recorded in [CHANGELOG.md](CHANGELOG.md) (Keep a Changelog format).
 - Licensed under the [MIT License](LICENSE).
+
+## Disclaimer
+
+Mailgunner is a community-maintained, unofficial library. It is not affiliated with, authorized
+by, or endorsed by Mailgun or Sinch. "Mailgun" and "Sinch" are trademarks of their respective
+owners.

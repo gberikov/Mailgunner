@@ -6,6 +6,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Permitted runtime dependency (constitution Principle I); version centrally managed. -->
+    <PackageReference Include="Microsoft.Extensions.Http" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Pack the repository README into the NuGet package (PackageReadmeFile). -->
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
