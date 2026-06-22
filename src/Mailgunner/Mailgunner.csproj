@@ -6,8 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Permitted runtime dependency (constitution Principle I); version centrally managed. -->
+    <!-- Permitted runtime dependencies (constitution Principle I); versions centrally managed. -->
     <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="System.Text.Json" />
   </ItemGroup>
 
   <ItemGroup>
