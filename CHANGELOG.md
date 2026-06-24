@@ -56,5 +56,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ArgumentException` before any request. Sending is sequential and fail-fast: the first non-success
   response throws `MailgunnerException` (status + body) and issues no further requests, returning one
   `SendResult` per chunk on success.
+- Send enrichment options: any send (single, templated, or batched) can now carry optional production
+  knobs via `MailgunSendOptions` (exposed as `Options` on both `MailgunMessage` and
+  `MailgunBatchMessage`) plus `Attachments` and `InlineFiles` collections. New public types
+  `MailgunSendOptions`, `MailgunFile` (file name + bytes + optional content type), and the
+  `ClickTracking` enum (`Yes`/`No`/`HtmlOnly`). Attachments and inline files are emitted as
+  `attachment`/`inline` file parts carrying their file name and content type (defaulting to
+  `application/octet-stream` when omitted); tags as repeated `o:tag` fields (additive, blank entries
+  skipped); `o:testmode`, `o:tracking-opens`, and `o:tracking-clicks` (including `htmlonly`) when set;
+  `o:deliverytime` formatted as RFC 2822 with a numeric timezone offset (never a named zone); custom
+  headers as `h:<name>` and custom variables as `v:<name>` (string values, unique names). On a batch
+  the enrichments repeat identically on every chunk. A blank file name or custom header/variable name
+  throws `ArgumentException` before any request; the error contract is otherwise unchanged. The
+  combined 16KB cap on `o:`/`h:`/`v:`/`t:` parameters is documented (README) but not enforced
+  client-side — exceeding it is surfaced as `MailgunnerException`. Sends supplying no options are
+  unchanged.
 
 [Unreleased]: https://github.com/gberikov/Mailgunner/commits/master

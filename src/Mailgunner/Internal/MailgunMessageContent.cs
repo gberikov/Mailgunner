@@ -74,6 +74,8 @@ internal static class MailgunMessageContent
             }
         }
 
+        MailgunOptionsContent.Append(content, message.Options, message.Attachments, message.InlineFiles);
+
         return content;
     }
 

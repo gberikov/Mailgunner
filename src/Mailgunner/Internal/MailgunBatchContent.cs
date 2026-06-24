@@ -118,6 +118,8 @@ internal static class MailgunBatchContent
 
         Add(content, "recipient-variables", SerializeRecipientVariables(chunk));
 
+        MailgunOptionsContent.Append(content, message.Options, message.Attachments, message.InlineFiles);
+
         return content;
     }
 

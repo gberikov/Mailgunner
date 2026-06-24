@@ -66,6 +66,31 @@ independent: if you configure a region that does **not** match where your domain
 client still builds, but requests go to a host where the domain is not found and Mailgun
 responds with **HTTP 404**. Make sure the region matches your domain's region.
 
+## Send options & limits
+
+Any send — single, templated, or a personalized batch — can be enriched with optional production
+"knobs" via `MailgunMessage.Options` / `MailgunBatchMessage.Options` (a `MailgunSendOptions`), plus
+the `Attachments` and `InlineFiles` collections. Every knob is optional; omitting one leaves your
+Mailgun account default in effect.
+
+- **Attachments & inline files** — add `MailgunFile(fileName, content, contentType?)` to `Attachments`
+  (downloadable) or `InlineFiles` (embeddable, referenced from HTML by content id). When the content
+  type is omitted it defaults to `application/octet-stream`.
+- **Tags** — `Options.Tags` may carry several values; all are sent (not de-duplicated).
+- **Test mode** — `Options.TestMode = true` exercises the pipeline without delivering.
+- **Tracking** — `Options.TrackingOpens` (on/off) and `Options.TrackingClicks`
+  (`ClickTracking.Yes`/`No`/`HtmlOnly`).
+- **Scheduled delivery** — `Options.DeliveryTime` (a `DateTimeOffset`) is sent as an **RFC 2822**
+  date-time with a **numeric** timezone offset (for example `Thu, 25 Jun 2026 14:00:00 +0000`), never
+  a named zone.
+- **Custom headers & variables** — `Options.CustomHeaders` (`h:` prefix) and `Options.CustomVariables`
+  (`v:` prefix, string values).
+
+> **16KB limit.** Mailgun caps the **combined** size of the option (`o:`), custom-header (`h:`),
+> custom-variable (`v:`), and template (`t:`) parameters at **16KB per request**. Mailgunner does not
+> enforce this client-side; exceeding it causes the service to reject the request, surfaced as a
+> `MailgunnerException` carrying the HTTP status code and response body.
+
 ## Building from source
 
 Requires a [.NET SDK](https://dotnet.microsoft.com/download) matching `global.json`
