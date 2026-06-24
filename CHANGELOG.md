@@ -85,5 +85,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   request; any non-success response (including a not-found get/remove) surfaces `MailgunnerException`
   with the HTTP status code and raw body. JSON (de)serialization uses `System.Text.Json` source
   generation; no new dependency is added.
+- Webhook signature verification: `MailgunWebhookSignature.Verify(signingKey, timestamp, token,
+  signature)`, a pure, network-free static method that validates a Mailgun event webhook's signature
+  as the lowercase-hex HMAC-SHA256 of `timestamp + token` keyed by the caller-supplied webhook signing
+  key, using a constant-time comparison that never short-circuits on the first differing character. A
+  `null`/empty/whitespace signing key throws `ArgumentException`; any missing or malformed
+  webhook-supplied value (a `null` timestamp/token, or a `null`, empty, wrong-length, or
+  non-hexadecimal signature) returns `false` rather than throwing. Replay/freshness checks are left to
+  the consumer. No HTTP, no dependency injection, and no new dependency are involved (uses the in-box
+  `System.Security.Cryptography`).
 
 [Unreleased]: https://github.com/gberikov/Mailgunner/commits/master

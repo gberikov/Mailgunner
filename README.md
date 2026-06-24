@@ -134,6 +134,41 @@ await client.Suppressions.Complaints.ClearAsync(ct);                            
 - Any non-success response — including a not-found `GetAsync`/`RemoveAsync` — surfaces a
   `MailgunnerException` carrying the HTTP status code and raw response body.
 
+## Webhook signature verification
+
+Mailgun signs each event webhook (bounces, complaints, unsubscribes) so consumers can confirm it
+genuinely came from Mailgun before acting on it. Acting on a forged event would corrupt your
+suppression state and reputation handling, so verify first. `MailgunWebhookSignature.Verify` is a
+pure, network-free primitive — no client, no dependency injection, no state:
+
+```csharp
+using Mailgunner;
+
+// Extract the three signed fields from the incoming webhook request (you own the parsing),
+// and supply YOUR webhook signing key from configuration — the webhook signing key, not the
+// sending key, and never hard-coded.
+bool authentic = MailgunWebhookSignature.Verify(
+    signingKey: configuration["Mailgun:WebhookSigningKey"]!,
+    timestamp:  timestamp,
+    token:      token,
+    signature:  signature);
+
+if (!authentic)
+    return Results.Unauthorized(); // forged or tampered — do not touch suppression state
+```
+
+- The signature is validated as the **HMAC-SHA256** of `timestamp + token`, keyed by your signing
+  key and rendered as lowercase hexadecimal. The comparison is **constant-time** — it never
+  short-circuits on the first differing character, so timing reveals nothing about how many leading
+  characters matched.
+- Only the **signing key** is a precondition: a `null`, empty, or whitespace `signingKey` throws
+  `ArgumentException` (a configuration error). Every malformed or missing webhook-supplied field — a
+  `null` timestamp/token, or a `null`, empty, wrong-length, or non-hexadecimal signature — returns
+  `false` rather than throwing.
+- Verification answers only "was this signed with the signing key?". **Replay protection** and
+  **timestamp-freshness** checks (rejecting old or already-seen webhooks) are your responsibility and
+  are intentionally out of scope.
+
 ## Building from source
 
 Requires a [.NET SDK](https://dotnet.microsoft.com/download) matching `global.json`
