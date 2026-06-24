@@ -44,13 +44,13 @@ public class BatchFailureTests
     [Fact]
     public async Task Non_success_on_second_chunk_fails_fast_with_status_and_body_and_sends_no_further_chunks()
     {
-        const string failureBody = "{\"message\":\"rate limit exceeded\"}";
-        // Chunk index 1 (the 2nd of 3) returns 500; others succeed.
-        var (client, stub) = BuildClient(index => index == 1 ? (HttpStatusCode.InternalServerError, failureBody) : null);
+        const string failureBody = "{\"message\":\"'from' parameter is not a valid address\"}";
+        // Chunk index 1 (the 2nd of 3) returns a permanent 400 (not retried); others succeed.
+        var (client, stub) = BuildClient(index => index == 1 ? (HttpStatusCode.BadRequest, failureBody) : null);
 
         var ex = await Assert.ThrowsAsync<MailgunnerException>(() => client.SendBatchAsync(NewBatch(2500)));
 
-        Assert.Equal(500, ex.StatusCode);
+        Assert.Equal(400, ex.StatusCode);
         Assert.Equal(failureBody, ex.ResponseBody);
         // Only 2 requests issued; the 3rd chunk is never sent (fail-fast).
         Assert.Equal(2, stub.Requests.Count);
@@ -59,7 +59,7 @@ public class BatchFailureTests
     [Fact]
     public async Task Sending_key_never_appears_in_any_field_or_the_thrown_error()
     {
-        var (client, stub) = BuildClient(index => index == 1 ? (HttpStatusCode.InternalServerError, "server error") : null);
+        var (client, stub) = BuildClient(index => index == 1 ? (HttpStatusCode.BadRequest, "bad request") : null);
 
         var ex = await Assert.ThrowsAsync<MailgunnerException>(() => client.SendBatchAsync(NewBatch(2500)));
 

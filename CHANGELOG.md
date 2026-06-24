@@ -94,5 +94,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   non-hexadecimal signature) returns `false` rather than throwing. Replay/freshness checks are left to
   the consumer. No HTTP, no dependency injection, and no new dependency are involved (uses the in-box
   `System.Security.Cryptography`).
+- Automatic retry with backoff: every outbound request (sends and suppressions, which share the typed
+  `HttpClient`) is now wrapped in resilience that is **on by default**. Transient failures — HTTP
+  `429`, `408`, and any `5xx`, plus transport-level faults with no response (timeout, connection
+  reset/refused, DNS failure) — are retried automatically, while a non-429 `4xx` is never retried and
+  surfaces immediately after one attempt. Each computed wait uses exponential backoff with bounded
+  additive jitter (so successive waits are strictly increasing and desynchronized); a `Retry-After`
+  header on a retryable response (delta-seconds **or** HTTP-date) takes precedence for that attempt.
+  **Every** single wait is clamped to a mandatory cap so a hostile or far-future value cannot stall a
+  send. The retry budget is finite; when it is exhausted the final failure surfaces unchanged via the
+  single `MailgunnerException` contract (last status + body) and a single Warning exhaustion record is
+  logged (status/exception type and attempt count only — never the sending key, `Authorization`
+  header, or body). Pending waits are cancelable: the caller's `CancellationToken` abandons a wait
+  promptly. Tuning is additive and defaulted via `MailgunnerOptions.Retry` (`RetryPolicyOptions`:
+  `MaxRetryAttempts` = 3, `BaseDelay` = 500 ms, `MaxSingleWait` = 30 s, `UseJitter` = true), so every
+  existing registration is unaffected. This is the library's first use of `Polly` (a permitted
+  dependency); `Microsoft.Extensions.Http.Polly`/`.Resilience` are deliberately not used. An eventual
+  success is indistinguishable from a first-attempt success (which still makes exactly one attempt with
+  no waiting).
 
 [Unreleased]: https://github.com/gberikov/Mailgunner/commits/master
