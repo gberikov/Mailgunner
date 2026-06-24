@@ -72,3 +72,8 @@ dotnet_diagnostic.CS1591.severity = error    # Missing XML doc on public member
 dotnet_diagnostic.CA1707.severity = none
 # Test projects do not generate a documentation file, which IDE0005-on-build requires.
 dotnet_diagnostic.IDE0005.severity = suggestion
+
+# --- Sample project: a runnable example, not a packable assembly ---
+[samples/**/*.cs]
+# The sample does not generate a documentation file, which IDE0005-on-build requires.
+dotnet_diagnostic.IDE0005.severity = suggestion

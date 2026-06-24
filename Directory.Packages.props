@@ -23,4 +23,14 @@
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.9" />
   </ItemGroup>
 
+  <!--
+    Sample-only dependencies (samples/Mailgunner.Sample). NOT part of the publishable
+    Mailgunner package or its dependency set (constitution Principle I scopes to the library).
+    Pinned to the same Microsoft.Extensions.* 10.0.x train as Microsoft.Extensions.Http above,
+    which ships net8.0 assets so the sample's net8.0 target restores cleanly.
+  -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
+  </ItemGroup>
+
 </Project>

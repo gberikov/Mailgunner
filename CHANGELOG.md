@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-06-24
+
 ### Added
 
 - Initial repository scaffold: `slnx` solution, multi-targeted (`net8.0;netstandard2.0`)
@@ -112,5 +114,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dependency); `Microsoft.Extensions.Http.Polly`/`.Resilience` are deliberately not used. An eventual
   success is indistinguishable from a first-attempt success (which still makes exactly one attempt with
   no waiting).
+- First-run experience: a copy-paste **README quickstart** and a runnable, non-packable console
+  **sample** (`samples/Mailgunner.Sample`) that performs a personalized conference-invitation batch
+  send (each recipient gets their own `name`/`ticket`/`link` from one stored Handlebars template via
+  the `t:variables` ↔ `recipient-variables` bridge). The sample is the project's single
+  environment-gated live check — it reads credentials from configuration/environment and is skipped
+  (not failed) when they are absent — and its credential-presence resolver is covered by an offline
+  unit test, so the default build/test stay green with no credentials.
 
-[Unreleased]: https://github.com/gberikov/Mailgunner/commits/master
+[Unreleased]: https://github.com/gberikov/Mailgunner/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/gberikov/Mailgunner/releases/tag/v0.1.0

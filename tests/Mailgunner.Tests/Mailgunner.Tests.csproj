@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Mailgunner\Mailgunner.csproj" />
+    <ProjectReference Include="..\..\samples\Mailgunner.Sample\Mailgunner.Sample.csproj" />
   </ItemGroup>
 
 </Project>

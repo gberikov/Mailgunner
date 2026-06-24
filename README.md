@@ -3,9 +3,10 @@
 Lightweight, modern, unofficial .NET client for the [Mailgun](https://www.mailgun.com/)
 (Sinch) REST API, focused on bulk personalized email delivery.
 
-> **Status:** Foundation scaffold. The repository, build, packaging, and quality gates are
-> in place; client functionality (messages, suppressions, webhooks) is delivered by
-> subsequent features.
+> **Status:** `0.1.0` — first release. DI registration, single & templated sends, personalized
+> batch sends, send options, suppression lists, webhook signature verification, and automatic
+> retry/backoff are all in place — with the copy-paste [Quickstart](#quickstart) and runnable
+> [sample](#run-the-sample) below.
 
 ## Highlights
 
@@ -22,7 +23,102 @@ Lightweight, modern, unofficial .NET client for the [Mailgun](https://www.mailgu
 dotnet add package Mailgunner
 ```
 
-> Not yet published while the library is in its foundation phase.
+> Published to NuGet on tagging `v0.1.0`; until then, build from source (see
+> [Building from source](#building-from-source)).
+
+## Quickstart
+
+Register the client, then send a **personalized conference-invitation batch** — each recipient
+gets their own name, ticket, and personal link from one stored Handlebars template. Adapt only the
+domain, key, region, and recipients; everything else is the scenario the [sample](#run-the-sample)
+runs verbatim.
+
+```csharp
+using Mailgunner;
+using Microsoft.Extensions.DependencyInjection;
+
+// 1. Register the client (adapt domain / key / region; supply the key from configuration).
+var services = new ServiceCollection();
+services.AddMailgunner(
+    domain: "sandbox123.mailgun.org",
+    sendingKey: configuration["Mailgun:SendingKey"]!,
+    region: MailgunRegion.Us);
+
+IMailgunnerClient client = services.BuildServiceProvider().GetRequiredService<IMailgunnerClient>();
+
+// 2. Build the batch from a stored Handlebars template that references {{name}} / {{ticket}} / {{link}}.
+var batch = new MailgunBatchMessage
+{
+    From = "postmaster@sandbox123.mailgun.org",
+    Subject = "You're invited!",
+    Template = "conference-invitation",
+    GenerateTextFromTemplate = true,
+};
+
+// 3. The bridge: each template variable reads its per-recipient value from recipient-variables.
+batch.TemplateVariables["name"] = "%recipient.name%";
+batch.TemplateVariables["ticket"] = "%recipient.ticket%";
+batch.TemplateVariables["link"] = "%recipient.link%";
+
+// 4. Per-recipient values — each attendee gets their own name / ticket / link.
+var ada = new BatchRecipient("dev1@example.com");
+ada.Variables["name"] = "Ada Lovelace";
+ada.Variables["ticket"] = "A-1024";
+ada.Variables["link"] = "https://conf.example/t/A-1024";
+batch.Recipients.Add(ada);
+
+var alan = new BatchRecipient("dev2@example.com");
+alan.Variables["name"] = "Alan Turing";
+alan.Variables["ticket"] = "A-2048";
+alan.Variables["link"] = "https://conf.example/t/A-2048";
+batch.Recipients.Add(alan);
+
+// 5. Send — automatically chunked; Mailgun delivers one personalized message per recipient.
+IReadOnlyList<SendResult> results = await client.SendBatchAsync(batch);
+foreach (SendResult result in results)
+    Console.WriteLine($"sent: id={result.Id} status={result.Message}");
+```
+
+Why the bridge (step 3)? The library's batch send is **stored-template-only**: it emits the global
+`t:variables` (which a Handlebars template reads as `{{var}}`) and a per-recipient
+`recipient-variables` object (addressed as `%recipient.var%`). Mapping each `{{var}}` to its
+`%recipient.var%` token in `TemplateVariables` is what makes Mailgun render a **distinct** value per
+recipient — no library change required.
+
+## Run the sample
+
+A runnable version of the exact scenario above lives in
+[`samples/Mailgunner.Sample`](samples/Mailgunner.Sample). It is also the project's single
+environment-gated **live** check: it sends only when credentials are present and is **skipped — not
+failed — when they are absent**.
+
+**One-time setup** (live run only): in the Mailgun dashboard, add your test addresses as
+**authorized recipients** of your **sandbox** domain, and create a **stored Handlebars template**
+named `conference-invitation` whose body references the per-recipient fields, for example:
+
+```handlebars
+<p>Hi {{name}}, your ticket is <strong>{{ticket}}</strong>.</p>
+<p>Your personal link: <a href="{{link}}">{{link}}</a></p>
+```
+
+**Supply credentials** via environment variables (note the `__` section separator) or user-secrets —
+never edit source or commit a secret:
+
+```bash
+export Mailgun__Domain="sandbox123.mailgun.org"
+export Mailgun__SendingKey="key-…"                 # prefer a Domain Sending Key
+export Mailgun__Region="Us"                          # Us or Eu (must match the domain)
+export Mailgun__Recipients__0__Address="you@example.com"
+export Mailgun__Recipients__1__Address="teammate@example.com"
+```
+
+```bash
+dotnet run --project samples/Mailgunner.Sample
+```
+
+With credentials present, the sample sends one personalized batch and prints a success line (id +
+status) per chunk. **With any required setting absent**, it makes no request, prints exactly which
+settings are missing and where to supply them, and exits `0`.
 
 ## Getting started
 
