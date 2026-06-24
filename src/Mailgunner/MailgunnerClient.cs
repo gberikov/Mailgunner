@@ -37,7 +37,40 @@ internal sealed class MailgunnerClient : IMailgunnerClient
         System.Threading.CancellationToken cancellationToken = default)
     {
         using var content = MailgunMessageContent.Build(message);
+        return await SendContentAsync(content, cancellationToken).ConfigureAwait(false);
+    }
 
+    /// <inheritdoc />
+    public async System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<SendResult>> SendBatchAsync(
+        MailgunBatchMessage message,
+        System.Threading.CancellationToken cancellationToken = default)
+    {
+        MailgunBatchContent.Validate(message);
+
+        var results = new System.Collections.Generic.List<SendResult>();
+
+        foreach (var chunk in MailgunBatchContent.Chunk(message.Recipients, MailgunBatchContent.MaxRecipientsPerRequest))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            using var content = MailgunBatchContent.BuildChunk(message, chunk);
+            var result = await SendContentAsync(content, cancellationToken).ConfigureAwait(false);
+            results.Add(result);
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// POSTs <paramref name="content"/> to the domain's messages endpoint and parses the response into
+    /// a <see cref="SendResult"/>, throwing <see cref="MailgunnerException"/> on a non-success response
+    /// or an unparseable success body. Shared by single and batch send so both honor the same error
+    /// contract.
+    /// </summary>
+    private async System.Threading.Tasks.Task<SendResult> SendContentAsync(
+        System.Net.Http.HttpContent content,
+        System.Threading.CancellationToken cancellationToken)
+    {
         var requestUri = new Uri($"v3/{_domain}/messages", UriKind.Relative);
         using var response = await HttpClient
             .PostAsync(requestUri, content, cancellationToken)
