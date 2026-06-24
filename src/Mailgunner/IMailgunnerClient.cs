@@ -8,6 +8,13 @@ namespace Mailgunner;
 public interface IMailgunnerClient
 {
     /// <summary>
+    /// Gets access to the domain's suppression lists (bounces, unsubscribes, complaints): listing with
+    /// pagination, fetching, adding, removing, and clearing entries. These are JSON endpoints,
+    /// independent of the sending methods below.
+    /// </summary>
+    IMailgunSuppressions Suppressions { get; }
+
+    /// <summary>
     /// Sends a single email.
     /// </summary>
     /// <param name="message">The message to send.</param>

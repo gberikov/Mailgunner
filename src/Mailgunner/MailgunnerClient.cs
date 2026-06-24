@@ -22,7 +22,14 @@ internal sealed class MailgunnerClient : IMailgunnerClient
         Guard.NotNull(options, nameof(options));
         HttpClient = httpClient;
         _domain = options.Value.Domain.Trim();
+        _suppressions = new System.Lazy<IMailgunSuppressions>(
+            () => new MailgunSuppressions(HttpClient, _domain));
     }
+
+    private readonly System.Lazy<IMailgunSuppressions> _suppressions;
+
+    /// <inheritdoc />
+    public IMailgunSuppressions Suppressions => _suppressions.Value;
 
     /// <summary>
     /// Gets the configured typed HTTP client backing this client. Exposed to the test project

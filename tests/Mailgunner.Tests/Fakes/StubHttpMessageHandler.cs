@@ -21,12 +21,14 @@ internal sealed class CapturedRequest
     /// <param name="contentMediaType">The content media type, if any.</param>
     /// <param name="formData">The captured multipart fields, in order.</param>
     public CapturedRequest(
-        Uri? requestUri, HttpMethod? method, string? contentMediaType, IReadOnlyList<FormField> formData)
+        Uri? requestUri, HttpMethod? method, string? contentMediaType, IReadOnlyList<FormField> formData,
+        string? body = null)
     {
         RequestUri = requestUri;
         Method = method;
         ContentMediaType = contentMediaType;
         FormData = formData;
+        Body = body;
     }
 
     /// <summary>Gets the request URI.</summary>
@@ -40,6 +42,9 @@ internal sealed class CapturedRequest
 
     /// <summary>Gets the captured multipart fields, in order.</summary>
     public IReadOnlyList<FormField> FormData { get; }
+
+    /// <summary>Gets the raw request body for non-multipart (for example JSON) requests; null for multipart or bodyless requests.</summary>
+    public string? Body { get; }
 
     /// <summary>Returns the values of every field named <paramref name="name"/>, in order.</summary>
     /// <param name="name">The field name.</param>
@@ -138,6 +143,9 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
     /// <summary>Gets the captured multipart form fields of the last request, in order.</summary>
     public IReadOnlyList<FormField> LastFormData { get; private set; } = Array.Empty<FormField>();
 
+    /// <summary>Gets the raw body of the last non-multipart (for example JSON) request; null otherwise.</summary>
+    public string? LastBody { get; private set; }
+
     /// <summary>Gets every captured request, in the order they were sent.</summary>
     public IReadOnlyList<CapturedRequest> Requests => _requests;
 
@@ -164,12 +172,20 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
         LastRequestUri = request.RequestUri;
         LastMethod = request.Method;
         LastContentMediaType = null;
+        LastBody = null;
 
         var fields = Array.Empty<FormField>() as IReadOnlyList<FormField>;
+        string? requestBody = null;
 
         if (request.Content is not null)
         {
             LastContentMediaType = request.Content.Headers.ContentType?.MediaType;
+        }
+
+        if (request.Content is not null and not MultipartFormDataContent)
+        {
+            requestBody = await request.Content.ReadAsStringAsync(CancellationToken.None).ConfigureAwait(false);
+            LastBody = requestBody;
         }
 
         if (request.Content is MultipartFormDataContent multipart)
@@ -191,7 +207,7 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
         LastFormData = fields;
 
         var index = _requests.Count;
-        _requests.Add(new CapturedRequest(request.RequestUri, request.Method, LastContentMediaType, fields));
+        _requests.Add(new CapturedRequest(request.RequestUri, request.Method, LastContentMediaType, fields, requestBody));
 
         OnSend?.Invoke(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();

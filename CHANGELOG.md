@@ -71,5 +71,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   combined 16KB cap on `o:`/`h:`/`v:`/`t:` parameters is documented (README) but not enforced
   client-side — exceeding it is surfaced as `MailgunnerException`. Sends supplying no options are
   unchanged.
+- Suppression lists: `IMailgunnerClient.Suppressions` exposes a domain's bounces, unsubscribes, and
+  complaints lists, independent of the sending pipeline. New public types `IMailgunSuppressions`,
+  `ISuppressionList<TEntry>`, `SuppressionPage<TEntry>`, and the typed entries `Bounce` (address, code,
+  error, created-at), `Unsubscribe` (address, tags, created-at), and `Complaint` (address, created-at).
+  These are JSON endpoints (`GET`/`POST`/`DELETE /v3/{domain}/{bounces|unsubscribes|complaints}`). Each
+  list offers `ListAsync` — an `IAsyncEnumerable<T>` that transparently follows the response's cursor
+  pagination and streams large lists — over a caller-driven single-page primitive `ListPageAsync`
+  (entries + opaque `NextCursor`); an optional page size is applied to the first request only.
+  `GetAsync` fetches one entry by address; `AddAsync` creates an entry (address plus each type's optional
+  fields) via a JSON body; `RemoveAsync` deletes a single address and `ClearAsync` deletes the whole
+  list. A null entry or blank address throws `ArgumentException`/`ArgumentNullException` before any
+  request; any non-success response (including a not-found get/remove) surfaces `MailgunnerException`
+  with the HTTP status code and raw body. JSON (de)serialization uses `System.Text.Json` source
+  generation; no new dependency is added.
 
 [Unreleased]: https://github.com/gberikov/Mailgunner/commits/master
