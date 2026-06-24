@@ -71,4 +71,25 @@ public sealed class MailgunMessage
     /// </summary>
     public System.Collections.Generic.IDictionary<string, object?> TemplateVariables { get; }
         = new System.Collections.Generic.Dictionary<string, object?>();
+
+    /// <summary>
+    /// Gets the optional send enrichments (tags, test mode, tracking toggles, scheduled delivery time,
+    /// custom headers, and custom variables) applied to this send. Empty by default; every member is
+    /// optional.
+    /// </summary>
+    public MailgunSendOptions Options { get; } = new MailgunSendOptions();
+
+    /// <summary>
+    /// Gets the file attachments delivered alongside the message. Each is emitted as a downloadable
+    /// <c>attachment</c> file part carrying its file name and content type.
+    /// </summary>
+    public System.Collections.Generic.IList<MailgunFile> Attachments { get; }
+        = new System.Collections.Generic.List<MailgunFile>();
+
+    /// <summary>
+    /// Gets the inline (embedded) files. Each is emitted as an <c>inline</c> file part — distinct from
+    /// <see cref="Attachments"/> — so it can be referenced from the HTML body by its content id.
+    /// </summary>
+    public System.Collections.Generic.IList<MailgunFile> InlineFiles { get; }
+        = new System.Collections.Generic.List<MailgunFile>();
 }

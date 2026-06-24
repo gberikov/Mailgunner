@@ -3,9 +3,11 @@ using System.Net;
 namespace Mailgunner.Tests.Fakes;
 
 /// <summary>
-/// A single captured <c>multipart/form-data</c> field: its name and string value.
+/// A single captured <c>multipart/form-data</c> part: its field name and string value, plus — for file
+/// parts — the <see cref="FileName"/> from its <c>Content-Disposition</c> and the <see cref="ContentType"/>
+/// media type. String parts carry <see langword="null"/> for both file metadata fields.
 /// </summary>
-internal readonly record struct FormField(string Name, string Value);
+internal readonly record struct FormField(string Name, string Value, string? FileName, string? ContentType);
 
 /// <summary>
 /// A single captured request: its URI, method, content media type, and multipart fields. Lets batch
@@ -76,6 +78,23 @@ internal sealed class CapturedRequest
     /// <param name="name">The field name.</param>
     /// <returns>The count of matching fields.</returns>
     public int Count(string name) => Values(name).Count;
+
+    /// <summary>Returns every captured part named <paramref name="name"/>, in order (incl. file metadata).</summary>
+    /// <param name="name">The field name (for example, <c>attachment</c> or <c>inline</c>).</param>
+    /// <returns>The matching parts.</returns>
+    public IReadOnlyList<FormField> Fields(string name)
+    {
+        var fields = new List<FormField>();
+        foreach (var field in FormData)
+        {
+            if (field.Name == name)
+            {
+                fields.Add(field);
+            }
+        }
+
+        return fields;
+    }
 }
 
 /// <summary>
@@ -160,7 +179,10 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
             {
                 var name = Unquote(part.Headers.ContentDisposition?.Name);
                 var value = await part.ReadAsStringAsync(CancellationToken.None).ConfigureAwait(false);
-                captured.Add(new FormField(name, value));
+                var rawFileName = part.Headers.ContentDisposition?.FileName;
+                var fileName = rawFileName is null ? null : rawFileName.Trim('"');
+                var contentType = part.Headers.ContentType?.MediaType;
+                captured.Add(new FormField(name, value, fileName, contentType));
             }
 
             fields = captured;

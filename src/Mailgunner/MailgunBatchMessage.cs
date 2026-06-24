@@ -54,4 +54,25 @@ public sealed class MailgunBatchMessage
     /// </summary>
     public System.Collections.Generic.IList<BatchRecipient> Recipients { get; }
         = new System.Collections.Generic.List<BatchRecipient>();
+
+    /// <summary>
+    /// Gets the optional send enrichments (tags, test mode, tracking toggles, scheduled delivery time,
+    /// custom headers, and custom variables) applied to the batch. Empty by default; every member is
+    /// optional and is repeated identically on every chunk.
+    /// </summary>
+    public MailgunSendOptions Options { get; } = new MailgunSendOptions();
+
+    /// <summary>
+    /// Gets the file attachments delivered alongside every chunk's message. Each is emitted as a
+    /// downloadable <c>attachment</c> file part carrying its file name and content type.
+    /// </summary>
+    public System.Collections.Generic.IList<MailgunFile> Attachments { get; }
+        = new System.Collections.Generic.List<MailgunFile>();
+
+    /// <summary>
+    /// Gets the inline (embedded) files included on every chunk. Each is emitted as an <c>inline</c>
+    /// file part — distinct from <see cref="Attachments"/> — referenceable from the HTML body by content id.
+    /// </summary>
+    public System.Collections.Generic.IList<MailgunFile> InlineFiles { get; }
+        = new System.Collections.Generic.List<MailgunFile>();
 }
