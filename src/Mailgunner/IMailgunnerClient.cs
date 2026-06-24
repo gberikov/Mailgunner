@@ -16,6 +16,14 @@ public interface IMailgunnerClient
     IMailgunSuppressions Suppressions { get; }
 
     /// <summary>
+    /// Gets access to the domain's webhook registrations: listing, reading, creating, updating, and
+    /// deleting the callback URLs Mailgun invokes for each delivery event. These target Mailgun's v3
+    /// webhook surface (JSON responses; create/update send form-encoded fields) and are independent of
+    /// the sending methods below and of signature verification.
+    /// </summary>
+    IMailgunWebhooks Webhooks { get; }
+
+    /// <summary>
     /// Sends a single email.
     /// </summary>
     /// <param name="message">The message to send.</param>
