@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Domain webhook management: a new `client.Webhooks` (`IMailgunWebhooks`) capability area that lists,
+  reads, creates, updates, and deletes a domain's webhook registrations over Mailgun's v3 webhook
+  endpoints (`/v3/{domain}/webhooks`), mirroring the shape of `client.Suppressions`. A webhook is keyed by
+  one of a closed, typed set of event types (`WebhookEventType`: `Delivered`, `Opened`, `Clicked`,
+  `Unsubscribed`, `Complained`, `PermanentFail`, `TemporaryFail`) and carries one or more callback URLs,
+  returned as a typed `WebhookRegistration` (`EventType` + `Urls`). `CreateAsync(eventType, urls)` and
+  `UpdateAsync(eventType, urls)` send the URL(s) as form fields and return the registration;
+  `CreateAsync(eventTypes, url)` registers one URL across several event types, fanning out to one create
+  per event type sequentially with fail-fast, no-rollback semantics on a partial failure; `ListAsync`
+  returns one registration per configured event type (empty when none); `GetAsync`/`DeleteAsync` act on a
+  single event type. Every operation reuses the registered client's region/base URL and Basic auth, takes
+  a `CancellationToken`, and surfaces a non-2xx response as the single `MailgunnerException` (status code +
+  raw body). Pairs with the existing `MailgunWebhookSignature.Verify` primitive to complete the push-based
+  delivery-tracking story. Purely additive (SemVer MINOR); no new runtime dependency and no new exception
+  type.
 - One-click List-Unsubscribe (RFC 8058): a typed, opt-in `MailgunSendOptions.ListUnsubscribe` property
   (new `ListUnsubscribeOptions` type with `Url`, `MailtoAddress`, and `OneClick`) emits a correctly
   formatted `List-Unsubscribe` header — and, when `OneClick` is set, the
