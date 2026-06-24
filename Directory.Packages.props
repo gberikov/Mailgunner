@@ -5,6 +5,15 @@
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
 
+  <!--
+    Build-time-only tooling. MinVer derives the package version from the `v*` git tag and is
+    referenced with PrivateAssets="all" so it never enters the consumer dependency graph
+    (constitution Principle I scopes to runtime dependencies).
+  -->
+  <ItemGroup>
+    <PackageVersion Include="MinVer" Version="7.0.0" />
+  </ItemGroup>
+
   <!-- Test stack -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />

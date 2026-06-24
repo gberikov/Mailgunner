@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-preview.1] - 2026-06-24
+
+First public **pre-release** to NuGet. Ships the complete `0.1.0` foundation below for early
+feedback while the public API may still evolve; published as a pre-release so it is not
+surfaced as the latest stable version. See [0.1.0](#010---2026-06-24) for the full feature
+set included in this pre-release.
+
 ## [0.1.0] - 2026-06-24
 
 ### Added

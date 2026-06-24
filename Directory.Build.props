@@ -26,11 +26,23 @@
     <PackageTags>mailgun;sinch;email;transactional-email;smtp;mail</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <!-- Per-version release notes live in the changelog (single source of truth). -->
+    <PackageReleaseNotes>See the changelog: https://github.com/gberikov/Mailgunner/blob/master/CHANGELOG.md</PackageReleaseNotes>
     <PackageProjectUrl>https://github.com/gberikov/Mailgunner</PackageProjectUrl>
     <RepositoryUrl>https://github.com/gberikov/Mailgunner</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <!-- Pre-1.0 foundation; release versions are derived from v* git tags in CI. -->
-    <VersionPrefix>0.1.0</VersionPrefix>
+  </PropertyGroup>
+
+  <!--
+    Versioning: MinVer is the single source of truth, deriving the package version from the
+    `v*` git tag (e.g. tag `v0.1.0-preview.1` => version 0.1.0-preview.1). Do NOT reintroduce
+    a hard-coded VersionPrefix/Version — it would silently shadow MinVer and reintroduce drift.
+    Untagged local builds produce a 0.1.0-* height version via MinVerMinimumMajorMinor.
+  -->
+  <PropertyGroup>
+    <MinVerTagPrefix>v</MinVerTagPrefix>
+    <MinVerMinimumMajorMinor>0.1</MinVerMinimumMajorMinor>
   </PropertyGroup>
 
   <!-- Reproducible, source-linked builds (US3) -->
