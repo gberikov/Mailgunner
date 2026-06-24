@@ -66,4 +66,16 @@ public sealed class MailgunSendOptions
     /// </summary>
     public System.Collections.Generic.IDictionary<string, string> CustomVariables { get; }
         = new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.Ordinal);
+
+    /// <summary>
+    /// Gets or sets the opt-in unsubscribe target emitted as the RFC 8058 / RFC 2369
+    /// <c>List-Unsubscribe</c> header (and, when <see cref="ListUnsubscribeOptions.OneClick"/> is set,
+    /// <c>List-Unsubscribe-Post: List-Unsubscribe=One-Click</c>). <see langword="null"/> by default — no
+    /// header is emitted and transactional sends are unaffected. The <c>Url</c> form must be <c>https</c>;
+    /// one-click requires an <c>https</c> <c>Url</c>. Setting this <em>and</em> also supplying a
+    /// <c>List-Unsubscribe</c> / <c>List-Unsubscribe-Post</c> entry in <see cref="CustomHeaders"/> (matched
+    /// case-insensitively) is a conflict that throws an <see cref="System.ArgumentException"/> when the
+    /// request is built; use exactly one mechanism.
+    /// </summary>
+    public ListUnsubscribeOptions? ListUnsubscribe { get; set; }
 }

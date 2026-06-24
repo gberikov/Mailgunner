@@ -92,6 +92,14 @@ internal static class MailgunOptionsContent
             Add(content, "v:" + variable.Key, variable.Value);
         }
 
+        // 7b. List-Unsubscribe (RFC 8058 / RFC 2369) — opt-in; emits h:List-Unsubscribe and, when
+        // one-click, h:List-Unsubscribe-Post. Validates and guards against a manual duplicate before
+        // emitting; any failure throws ArgumentException so no request is issued.
+        if (options.ListUnsubscribe is ListUnsubscribeOptions unsubscribe)
+        {
+            AppendListUnsubscribe(content, options, unsubscribe);
+        }
+
         // 8. Attachments — downloadable file parts.
         foreach (var file in attachments)
         {
@@ -102,6 +110,91 @@ internal static class MailgunOptionsContent
         foreach (var file in inlineFiles)
         {
             AddFile(content, "inline", file);
+        }
+    }
+
+    /// <summary>
+    /// Validates and emits the <c>List-Unsubscribe</c> (and, for one-click, <c>List-Unsubscribe-Post</c>)
+    /// headers for <paramref name="unsubscribe"/>. The header value lists the <c>https</c> URL first then
+    /// the <c>mailto:</c> address, each in angle brackets, joined by <c>", "</c>. All invalid inputs throw
+    /// before any field is added.
+    /// </summary>
+    /// <param name="content">The multipart body being built.</param>
+    /// <param name="options">The owning options (its <c>CustomHeaders</c> are checked for a duplicate).</param>
+    /// <param name="unsubscribe">The unsubscribe target to validate and emit.</param>
+    /// <exception cref="System.ArgumentException">
+    /// The target is empty (no URL and no mailto), the URL is not an absolute <c>https</c> URI or carries
+    /// control characters / line breaks, one-click is set without an <c>https</c> URL, or a
+    /// <c>List-Unsubscribe</c> / <c>List-Unsubscribe-Post</c> header is also set manually via
+    /// <c>CustomHeaders</c> (matched case-insensitively).
+    /// </exception>
+    private static void AppendListUnsubscribe(
+        System.Net.Http.MultipartFormDataContent content,
+        MailgunSendOptions options,
+        ListUnsubscribeOptions unsubscribe)
+    {
+        var hasUrl = !string.IsNullOrWhiteSpace(unsubscribe.Url);
+        var hasMailto = unsubscribe.MailtoAddress.HasValue
+            && !string.IsNullOrWhiteSpace(unsubscribe.MailtoAddress.Value.Address);
+
+        if (!hasUrl && !hasMailto)
+        {
+            throw new System.ArgumentException(
+                "A List-Unsubscribe target must have an https Url, a MailtoAddress, or both.", nameof(options));
+        }
+
+        // Fail-fast on a conflicting manual header so no duplicate reaches the wire. Header names are
+        // case-insensitive, so the match is ordinal-ignore-case.
+        foreach (var key in options.CustomHeaders.Keys)
+        {
+            if (string.Equals(key, "List-Unsubscribe", System.StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "List-Unsubscribe-Post", System.StringComparison.OrdinalIgnoreCase))
+            {
+                throw new System.ArgumentException(
+                    "List-Unsubscribe is set both via ListUnsubscribe and a manual CustomHeaders entry; use only one.",
+                    nameof(options));
+            }
+        }
+
+        if (hasUrl)
+        {
+            var url = unsubscribe.Url!;
+            if (ContainsLineBreak(url) || ContainsControlCharacter(url))
+            {
+                throw new System.ArgumentException(
+                    "A List-Unsubscribe Url must not contain control characters or line breaks.", nameof(options));
+            }
+
+            if (!System.Uri.TryCreate(url, System.UriKind.Absolute, out var uri)
+                || !string.Equals(uri.Scheme, "https", System.StringComparison.OrdinalIgnoreCase))
+            {
+                throw new System.ArgumentException(
+                    "A List-Unsubscribe Url must be an absolute https URI.", nameof(options));
+            }
+        }
+
+        if (unsubscribe.OneClick && !hasUrl)
+        {
+            throw new System.ArgumentException(
+                "One-click List-Unsubscribe requires an https Url.", nameof(options));
+        }
+
+        var targets = new System.Collections.Generic.List<string>(2);
+        if (hasUrl)
+        {
+            targets.Add("<" + unsubscribe.Url + ">");
+        }
+
+        if (hasMailto)
+        {
+            targets.Add("<mailto:" + unsubscribe.MailtoAddress!.Value.Address + ">");
+        }
+
+        Add(content, "h:List-Unsubscribe", string.Join(", ", targets));
+
+        if (unsubscribe.OneClick)
+        {
+            Add(content, "h:List-Unsubscribe-Post", "List-Unsubscribe=One-Click");
         }
     }
 
