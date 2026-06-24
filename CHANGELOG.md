@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- One-click List-Unsubscribe (RFC 8058): a typed, opt-in `MailgunSendOptions.ListUnsubscribe` property
+  (new `ListUnsubscribeOptions` type with `Url`, `MailtoAddress`, and `OneClick`) emits a correctly
+  formatted `List-Unsubscribe` header — and, when `OneClick` is set, the
+  `List-Unsubscribe-Post: List-Unsubscribe=One-Click` header — so marketing mail can meet the Gmail/Yahoo
+  bulk-sender one-click requirement without hand-assembling raw headers. Supports an `https` URL only, a
+  `mailto` address only, or both (emitted URL-first, comma-separated, each in angle brackets). Validated
+  before any request: the URL must be absolute `https` and free of control characters / line breaks,
+  one-click requires an `https` URL, and a target set both here and as a manual
+  `List-Unsubscribe`/`List-Unsubscribe-Post` entry in `CustomHeaders` (matched case-insensitively) is
+  rejected so no duplicate header reaches the wire — all via `ArgumentException` (no new exception type).
+  Applies uniformly to single, templated, and batch sends (repeated identically on every chunk). Unset by
+  default, so transactional mail is unaffected. Purely additive (SemVer MINOR).
 - Named clients: `AddMailgunner` now has named overloads — `AddMailgunner(name, domain, sendingKey,
   region)`, `AddMailgunner(name, Action<MailgunnerOptions>)`, and `AddMailgunner(name, IConfiguration)`
   — so several independently configured Mailgunner clients can coexist in one container (for example
