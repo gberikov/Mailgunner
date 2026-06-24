@@ -12,12 +12,27 @@ public readonly struct EmailAddress : System.IEquatable<EmailAddress>
     /// </summary>
     /// <param name="address">The email address. Required, non-empty.</param>
     /// <param name="displayName">The optional display name.</param>
-    /// <exception cref="System.ArgumentException"><paramref name="address"/> is null, empty, or whitespace.</exception>
+    /// <exception cref="System.ArgumentException">
+    /// <paramref name="address"/> is null, empty, or whitespace, or either argument contains a control
+    /// character (for example a carriage return or line feed, which could otherwise inject headers).
+    /// </exception>
     public EmailAddress(string address, string? displayName = null)
     {
         if (string.IsNullOrWhiteSpace(address))
         {
             throw new System.ArgumentException("An email address is required.", nameof(address));
+        }
+
+        if (ContainsControlCharacter(address))
+        {
+            throw new System.ArgumentException(
+                "An email address must not contain control characters.", nameof(address));
+        }
+
+        if (displayName is not null && ContainsControlCharacter(displayName))
+        {
+            throw new System.ArgumentException(
+                "A display name must not contain control characters.", nameof(displayName));
         }
 
         Address = address;
@@ -65,12 +80,69 @@ public readonly struct EmailAddress : System.IEquatable<EmailAddress>
     public static EmailAddress FromString(string address) => new(address);
 
     /// <summary>
-    /// Formats the wire value: <c>"Display Name &lt;address&gt;"</c> when a display name is set,
-    /// otherwise just the address.
+    /// Formats the wire value: <c>Display Name &lt;address&gt;</c> when a display name is set,
+    /// otherwise just the address. A display name containing RFC 5322 special characters is emitted
+    /// as a quoted string (with embedded <c>"</c> and <c>\</c> escaped) so it cannot break address-list
+    /// parsing.
     /// </summary>
     /// <returns>The formatted address.</returns>
     public override string ToString() =>
-        string.IsNullOrEmpty(DisplayName) ? Address : $"{DisplayName} <{Address}>";
+        string.IsNullOrEmpty(DisplayName) ? Address : $"{FormatDisplayName(DisplayName!)} <{Address}>";
+
+    private static string FormatDisplayName(string displayName)
+    {
+        if (!NeedsQuoting(displayName))
+        {
+            return displayName;
+        }
+
+        // The two-argument string overload replaces ordinally and is available on every target
+        // framework (the StringComparison overload is missing on netstandard2.0).
+        var escaped = displayName
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"");
+        return "\"" + escaped + "\"";
+    }
+
+    private static bool NeedsQuoting(string displayName)
+    {
+        foreach (var c in displayName)
+        {
+            switch (c)
+            {
+                case '(':
+                case ')':
+                case '<':
+                case '>':
+                case '[':
+                case ']':
+                case ':':
+                case ';':
+                case '@':
+                case '\\':
+                case ',':
+                case '"':
+                    return true;
+                default:
+                    break;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ContainsControlCharacter(string value)
+    {
+        foreach (var c in value)
+        {
+            if (char.IsControl(c))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// Determines whether this address equals another by value.

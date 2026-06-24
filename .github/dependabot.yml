@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # Keep the SHA-pinned GitHub Actions current (security patches surface as PRs).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Surface NuGet updates (including security advisories) for the pinned dependency set.
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"

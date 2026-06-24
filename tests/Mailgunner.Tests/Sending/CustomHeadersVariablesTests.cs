@@ -106,4 +106,40 @@ public class CustomHeadersVariablesTests
         await Assert.ThrowsAsync<System.ArgumentException>(() => client.SendAsync(message));
         Assert.Empty(stub.Requests);
     }
+
+    [Theory]
+    [InlineData("X Bad")]                  // space is not a token character
+    [InlineData("X:Bad")]                  // colon is not a token character
+    [InlineData("X-Bad\r\nInjected-Header")] // CRLF header-injection attempt
+    public async Task Invalid_header_name_throws_before_any_request(string name)
+    {
+        var (client, stub) = BuildClient();
+        var message = NewMessage();
+        message.Options.CustomHeaders[name] = "value";
+
+        await Assert.ThrowsAsync<System.ArgumentException>(() => client.SendAsync(message));
+        Assert.Empty(stub.Requests);
+    }
+
+    [Fact]
+    public async Task Header_value_with_line_breaks_throws_before_any_request()
+    {
+        var (client, stub) = BuildClient();
+        var message = NewMessage();
+        message.Options.CustomHeaders["X-Ok"] = "line1\r\nInjected: evil";
+
+        await Assert.ThrowsAsync<System.ArgumentException>(() => client.SendAsync(message));
+        Assert.Empty(stub.Requests);
+    }
+
+    [Fact]
+    public async Task Variable_name_with_control_characters_throws_before_any_request()
+    {
+        var (client, stub) = BuildClient();
+        var message = NewMessage();
+        message.Options.CustomVariables["k\r\nInjected"] = "v";
+
+        await Assert.ThrowsAsync<System.ArgumentException>(() => client.SendAsync(message));
+        Assert.Empty(stub.Requests);
+    }
 }

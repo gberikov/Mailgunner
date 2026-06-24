@@ -60,23 +60,33 @@ internal static class MailgunOptionsContent
             Add(content, "o:deliverytime", FormatRfc2822(deliveryTime));
         }
 
-        // 6. Custom headers — h:<name>; unique names; blank name rejected.
+        // 6. Custom headers — h:<name>; unique names; name must be a valid header token and the
+        // value must carry no line breaks (both guard against header injection on the service side).
         foreach (var header in options.CustomHeaders)
         {
-            if (string.IsNullOrWhiteSpace(header.Key))
+            if (string.IsNullOrWhiteSpace(header.Key) || !IsValidHeaderToken(header.Key))
             {
-                throw new System.ArgumentException("A custom header name must be non-blank.", nameof(options));
+                throw new System.ArgumentException(
+                    "A custom header name must be a non-blank HTTP header token (RFC 7230).", nameof(options));
             }
 
-            Add(content, "h:" + header.Key, header.Value);
+            var headerValue = header.Value ?? string.Empty;
+            if (ContainsLineBreak(headerValue))
+            {
+                throw new System.ArgumentException(
+                    "A custom header value must not contain line breaks.", nameof(options));
+            }
+
+            Add(content, "h:" + header.Key, headerValue);
         }
 
-        // 7. Custom variables — v:<name>; string values verbatim; blank name rejected.
+        // 7. Custom variables — v:<name>; string values verbatim; blank or control-bearing name rejected.
         foreach (var variable in options.CustomVariables)
         {
-            if (string.IsNullOrWhiteSpace(variable.Key))
+            if (string.IsNullOrWhiteSpace(variable.Key) || ContainsControlCharacter(variable.Key))
             {
-                throw new System.ArgumentException("A custom variable name must be non-blank.", nameof(options));
+                throw new System.ArgumentException(
+                    "A custom variable name must be non-blank and free of control characters.", nameof(options));
             }
 
             Add(content, "v:" + variable.Key, variable.Value);
@@ -125,6 +135,55 @@ internal static class MailgunOptionsContent
         fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
             string.IsNullOrWhiteSpace(file.ContentType) ? DefaultContentType : file.ContentType!);
         content.Add(fileContent, field, file.FileName);
+    }
+
+    /// <summary>
+    /// Returns whether every character of <paramref name="name"/> is an RFC 7230 header-field token
+    /// character (letters, digits, and <c>!#$%&amp;'*+-.^_`|~</c>). This excludes spaces, colons, and
+    /// line breaks, so a malicious header name cannot inject additional headers.
+    /// </summary>
+    private static bool IsValidHeaderToken(string name)
+    {
+        foreach (var c in name)
+        {
+            var isTokenChar =
+                (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+                || c == '!' || c == '#' || c == '$' || c == '%' || c == '&' || c == '\''
+                || c == '*' || c == '+' || c == '-' || c == '.' || c == '^' || c == '_'
+                || c == '`' || c == '|' || c == '~';
+            if (!isTokenChar)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool ContainsLineBreak(string value)
+    {
+        foreach (var c in value)
+        {
+            if (c == '\r' || c == '\n')
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ContainsControlCharacter(string value)
+    {
+        foreach (var c in value)
+        {
+            if (char.IsControl(c))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void Add(System.Net.Http.MultipartFormDataContent content, string name, string value) =>

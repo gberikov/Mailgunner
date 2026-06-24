@@ -1,9 +1,10 @@
 namespace Mailgunner;
 
 /// <summary>
-/// The Mailgunner client resolved from the dependency-injection container. This is the entry
-/// point that every other Mailgunner capability builds on; operational members (sending,
-/// suppressions, webhooks) are introduced by later features.
+/// The Mailgunner client resolved from the dependency-injection container. It is the entry point
+/// for sending single and batch messages and for working with the domain's suppression lists.
+/// Webhook signature verification is a standalone, network-free primitive
+/// (<see cref="MailgunWebhookSignature"/>), not a member of this client.
 /// </summary>
 public interface IMailgunnerClient
 {

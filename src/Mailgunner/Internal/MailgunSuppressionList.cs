@@ -78,24 +78,23 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
         }
     }
 
+    /// <summary>The Mailgun-documented maximum page size (<c>limit</c>) for a suppression-list request.</summary>
+    private const int MaxPageSize = 1000;
+
     /// <inheritdoc />
     public System.Threading.Tasks.Task<SuppressionPage<TEntry>> ListPageAsync(
         int? pageSize = null,
-        System.Threading.CancellationToken cancellationToken = default) =>
-        FetchPageAsync(ListUri(pageSize), cancellationToken);
+        System.Threading.CancellationToken cancellationToken = default)
+    {
+        ValidatePageSize(pageSize);
+        return FetchPageAsync(ListUri(pageSize), cancellationToken);
+    }
 
     /// <inheritdoc />
     public System.Threading.Tasks.Task<SuppressionPage<TEntry>> ListPageAsync(
         string cursor,
-        System.Threading.CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(cursor))
-        {
-            throw new System.ArgumentException("A pagination cursor is required.", nameof(cursor));
-        }
-
-        return FetchPageAsync(new System.Uri(cursor, System.UriKind.Absolute), cancellationToken);
-    }
+        System.Threading.CancellationToken cancellationToken = default) =>
+        FetchPageAsync(ValidateCursor(cursor), cancellationToken);
 
     /// <inheritdoc />
     public async System.Threading.Tasks.Task<TEntry> GetAsync(
@@ -168,6 +167,15 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
             cancellationToken).ConfigureAwait(false);
     }
 
+    private static void ValidatePageSize(int? pageSize)
+    {
+        if (pageSize is int n && (n < 1 || n > MaxPageSize))
+        {
+            throw new System.ArgumentOutOfRangeException(
+                nameof(pageSize), n, $"Page size must be between 1 and {MaxPageSize}.");
+        }
+    }
+
     private System.Uri ListUri(int? pageSize) => new System.Uri(
         pageSize is int n
             ? $"v3/{_domain}/{_listSegment}?limit={n.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
@@ -178,6 +186,46 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
 
     private System.Uri ItemUri(string address) => new System.Uri(
         $"v3/{_domain}/{_listSegment}/{System.Uri.EscapeDataString(address)}", System.UriKind.Relative);
+
+    /// <summary>
+    /// Validates a caller-supplied pagination cursor before it is followed. The cursor is sent
+    /// verbatim and the client carries HTTP Basic auth on every request, so a cursor pointing at any
+    /// other origin would leak the sending key. Only an absolute <c>https</c> URL on the configured
+    /// Mailgun host (matching <see cref="System.Net.Http.HttpClient.BaseAddress"/>) and addressing this
+    /// very list (<c>/v3/{domain}/{listSegment}</c>) is accepted; anything else throws
+    /// <see cref="System.ArgumentException"/> with no request issued.
+    /// </summary>
+    private System.Uri ValidateCursor(string cursor)
+    {
+        if (string.IsNullOrWhiteSpace(cursor))
+        {
+            throw new System.ArgumentException("A pagination cursor is required.", nameof(cursor));
+        }
+
+        if (!System.Uri.TryCreate(cursor, System.UriKind.Absolute, out var uri))
+        {
+            throw new System.ArgumentException(
+                "The pagination cursor must be an absolute URL.", nameof(cursor));
+        }
+
+        var baseAddress = _httpClient.BaseAddress;
+        var sameOrigin = baseAddress is not null
+            && string.Equals(uri.Scheme, System.Uri.UriSchemeHttps, System.StringComparison.Ordinal)
+            && string.Equals(uri.Scheme, baseAddress.Scheme, System.StringComparison.Ordinal)
+            && string.Equals(uri.Host, baseAddress.Host, System.StringComparison.OrdinalIgnoreCase)
+            && uri.Port == baseAddress.Port;
+
+        var expectedPrefix = $"/v3/{_domain}/{_listSegment}";
+        if (!sameOrigin
+            || !uri.AbsolutePath.StartsWith(expectedPrefix, System.StringComparison.Ordinal))
+        {
+            throw new System.ArgumentException(
+                "The pagination cursor must reference this domain's suppression list on the configured Mailgun host.",
+                nameof(cursor));
+        }
+
+        return uri;
+    }
 
     private async System.Threading.Tasks.Task<SuppressionPage<TEntry>> FetchPageAsync(
         System.Uri uri, System.Threading.CancellationToken cancellationToken)

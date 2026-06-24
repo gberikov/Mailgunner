@@ -42,6 +42,43 @@ public class SuppressionPageSizeTests
         Assert.DoesNotContain("limit", stub.LastRequestUri!.Query);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    [InlineData(1001)]
+    public async Task Out_of_range_page_size_throws_before_any_request(int pageSize)
+    {
+        var (client, stub) = BuildClient("{\"items\":[],\"paging\":{}}");
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => client.Suppressions.Bounces.ListPageAsync(pageSize: pageSize));
+        Assert.Empty(stub.Requests);
+    }
+
+    [Fact]
+    public async Task Maximum_page_size_of_1000_is_accepted()
+    {
+        var (client, stub) = BuildClient("{\"items\":[],\"paging\":{}}");
+
+        await client.Suppressions.Bounces.ListPageAsync(pageSize: 1000);
+
+        Assert.Contains("limit=1000", stub.LastRequestUri!.Query);
+    }
+
+    [Fact]
+    public async Task Out_of_range_page_size_on_list_enumeration_throws_before_any_request()
+    {
+        var (client, stub) = BuildClient("{\"items\":[],\"paging\":{}}");
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
+        {
+            await foreach (var _ in client.Suppressions.Bounces.ListAsync(pageSize: 5000))
+            {
+            }
+        });
+        Assert.Empty(stub.Requests);
+    }
+
     [Fact]
     public async Task Page_size_is_not_re_applied_to_followed_next_pointer()
     {

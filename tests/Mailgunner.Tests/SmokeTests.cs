@@ -10,8 +10,10 @@ namespace Mailgunner.Tests;
 public class SmokeTests
 {
     [Fact]
-    public void Library_is_referenced_and_exposes_its_name()
+    public void Library_is_referenced_and_exposes_its_public_client_contract()
     {
-        Assert.Equal("Mailgunner", MailgunnerInfo.Name);
+        var assembly = typeof(IMailgunnerClient).Assembly;
+
+        Assert.Equal("Mailgunner", assembly.GetName().Name);
     }
 }

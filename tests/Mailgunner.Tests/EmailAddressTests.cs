@@ -59,4 +59,38 @@ public class EmailAddressTests
     {
         Assert.Throws<ArgumentException>(() => new EmailAddress(address!));
     }
+
+    [Theory]
+    [InlineData("a@b.com\r\nbcc: evil@x.com")]
+    [InlineData("a@b.com\nbcc: evil@x.com")]
+    [InlineData("a@b.com\tx")]
+    public void Address_with_control_characters_throws_ArgumentException(string address)
+    {
+        Assert.Throws<ArgumentException>(() => new EmailAddress(address));
+    }
+
+    [Theory]
+    [InlineData("Bob\r\nbcc: evil@x.com")]
+    [InlineData("Bob\nEvil")]
+    public void Display_name_with_control_characters_throws_ArgumentException(string displayName)
+    {
+        Assert.Throws<ArgumentException>(() => new EmailAddress("a@b.com", displayName));
+    }
+
+    [Fact]
+    public void ToString_quotes_a_display_name_containing_specials()
+    {
+        var address = new EmailAddress("a@b.com", "Doe, John");
+
+        Assert.Equal("\"Doe, John\" <a@b.com>", address.ToString());
+    }
+
+    [Fact]
+    public void ToString_escapes_quotes_and_backslashes_in_a_quoted_display_name()
+    {
+        var address = new EmailAddress("a@b.com", "A\"B\\C");
+
+        // Wrapped in quotes; the embedded " and \ are backslash-escaped.
+        Assert.Equal("\"A\\\"B\\\\C\" <a@b.com>", address.ToString());
+    }
 }

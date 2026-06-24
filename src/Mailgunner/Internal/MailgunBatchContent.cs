@@ -40,6 +40,14 @@ internal static class MailgunBatchContent
         var seen = new System.Collections.Generic.HashSet<string>(System.StringComparer.Ordinal);
         foreach (var recipient in message.Recipients)
         {
+            // A default(EmailAddress) bypasses the EmailAddress constructor's non-blank guard, so each
+            // recipient address is re-checked here rather than failing late during multipart build.
+            if (string.IsNullOrWhiteSpace(recipient.Address.Address))
+            {
+                throw new System.ArgumentException(
+                    "Each batch recipient must have a non-blank address.", nameof(message));
+            }
+
             if (!seen.Add(recipient.Address.Address))
             {
                 throw new System.ArgumentException(

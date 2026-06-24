@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Suppression-list pagination now validates a caller-supplied cursor before following it: only an
+  absolute `https` URL on the configured Mailgun host (matching the client's base address) and
+  addressing the same list is accepted; anything else throws `ArgumentException` with no request
+  issued. Previously an arbitrary absolute cursor was sent verbatim, which — because the client
+  carries HTTP Basic auth on every request — could leak the sending key to a foreign host.
+- Header/address injection hardening: `EmailAddress` now rejects control characters (including CR/LF)
+  in the address and display name; a display name containing RFC 5322 special characters is emitted
+  as a quoted string (with embedded `"` and `\` escaped). Custom header names must be valid RFC 7230
+  tokens and custom header values must not contain line breaks; custom variable names must be free of
+  control characters. All are rejected with `ArgumentException` before any request.
+- CI/release supply-chain hardening: GitHub Actions are pinned to commit SHAs (not mutable `@v4`
+  tags), a failing `dotnet list package --vulnerable` audit gate was added to CI, and a Dependabot
+  configuration keeps the action pins and NuGet packages current.
+
+### Changed
+
+- Batch send validates every recipient address up front: a recipient created from a
+  `default(EmailAddress)` (blank address) now throws `ArgumentException` before any request instead
+  of failing later during multipart construction.
+- Suppression-list page size is now bounded to the Mailgun-documented range `1..1000`; an
+  out-of-range value throws `ArgumentOutOfRangeException` before any request.
+
+### Removed
+
+- Removed the placeholder public `MailgunnerInfo` type (a scaffold artifact with no runtime value);
+  the offline smoke test now asserts the real client contract instead.
+
 ## [0.1.0-preview.1] - 2026-06-24
 
 First public **pre-release** to NuGet. Ships the complete `0.1.0` foundation below for early

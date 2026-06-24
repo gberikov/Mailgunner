@@ -69,6 +69,22 @@ public class BatchValidationTests
     }
 
     [Fact]
+    public async Task Recipient_with_a_default_address_throws_argument_exception_and_issues_no_request()
+    {
+        var (client, stub) = BuildClient();
+        var batch = new MailgunBatchMessage
+        {
+            From = new EmailAddress("invites@mg.example.com"),
+            Template = "conference-invite",
+        };
+        // A default EmailAddress bypasses the EmailAddress constructor's non-blank guard.
+        batch.Recipients.Add(new BatchRecipient(default(EmailAddress)));
+
+        await Assert.ThrowsAsync<ArgumentException>(() => client.SendBatchAsync(batch));
+        Assert.Empty(stub.Requests);
+    }
+
+    [Fact]
     public async Task Addresses_differing_only_by_case_are_not_duplicates()
     {
         var (client, stub) = BuildClient();
