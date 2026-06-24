@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Named clients: `AddMailgunner` now has named overloads — `AddMailgunner(name, domain, sendingKey,
+  region)`, `AddMailgunner(name, Action<MailgunnerOptions>)`, and `AddMailgunner(name, IConfiguration)`
+  — so several independently configured Mailgunner clients can coexist in one container (for example
+  separate Mailgun domains, or a transactional/marketing split), each with its own domain, sending
+  key, region, and `RetryPolicyOptions`. Resolve one at runtime with the new
+  `IMailgunnerClientFactory.Get(name)`, which returns a full `IMailgunnerClient` (sending +
+  suppressions). Each named client keeps its own typed `HttpClient` (via `IHttpClientFactory`), base
+  URL/auth, and resilience pipeline, fully isolated from other names and from the existing unnamed
+  registration. Names are non-blank and compared case-sensitively (ordinal); a blank or duplicate name
+  is rejected at registration and an unknown name at resolution, both with a clear `ArgumentException`
+  that never exposes a sending key. Per-name configuration is validated at startup
+  (`ValidateOnStart`). The existing unnamed `AddMailgunner` is unchanged and may coexist; when only
+  named clients are registered, a bare `IMailgunnerClient` is intentionally not resolvable (no implicit
+  default). This is purely additive (SemVer MINOR). Adds the first-party
+  `Microsoft.Extensions.Options.ConfigurationExtensions` dependency, used only by the configuration-
+  section overload.
+
 ### Security
 
 - Suppression-list pagination now validates a caller-supplied cursor before following it: only an

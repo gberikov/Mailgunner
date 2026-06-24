@@ -20,6 +20,8 @@
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="coverlet.collector" Version="10.0.1" />
+    <!-- Test-only: builds an in-memory IConfiguration to exercise the named config-section overload. -->
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.9" />
   </ItemGroup>
 
   <!--
@@ -30,6 +32,7 @@
     <PackageVersion Include="System.Text.Json" Version="10.0.9" />
     <PackageVersion Include="Polly" Version="8.7.0" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.9" />
   </ItemGroup>
 
   <!--

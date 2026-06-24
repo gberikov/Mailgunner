@@ -41,7 +41,9 @@ internal sealed class MailgunResilienceHandler : DelegatingHandler
     private readonly IRetryRandom _random;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MailgunResilienceHandler"/> class.
+    /// Initializes a new instance of the <see cref="MailgunResilienceHandler"/> class. Used by the
+    /// dependency-injection container for the unnamed client (only this public constructor is visible
+    /// to the activator, so there is no constructor-selection ambiguity).
     /// </summary>
     /// <param name="timeProvider">The time provider used for all waits and HTTP-date math.</param>
     /// <param name="options">The configured Mailgunner options supplying the retry tuning.</param>
@@ -52,17 +54,42 @@ internal sealed class MailgunResilienceHandler : DelegatingHandler
         IOptions<MailgunnerOptions> options,
         ILogger<MailgunResilienceHandler> logger,
         IRetryRandom random)
+        : this(timeProvider, RetryOf(options), logger, random)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MailgunResilienceHandler"/> class from explicit
+    /// retry tuning. Used when constructing a per-name handler whose tuning comes from a named options
+    /// instance (<c>IOptionsMonitor.Get(name).Retry</c>) rather than the unnamed
+    /// <see cref="IOptions{TOptions}"/>.
+    /// </summary>
+    /// <param name="timeProvider">The time provider used for all waits and HTTP-date math.</param>
+    /// <param name="retry">The retry tuning for this client.</param>
+    /// <param name="logger">The logger used to emit the exhaustion record.</param>
+    /// <param name="random">The (seedable) jitter source.</param>
+    internal MailgunResilienceHandler(
+        TimeProvider timeProvider,
+        RetryPolicyOptions retry,
+        ILogger<MailgunResilienceHandler> logger,
+        IRetryRandom random)
     {
         Guard.NotNull(timeProvider, nameof(timeProvider));
-        Guard.NotNull(options, nameof(options));
+        Guard.NotNull(retry, nameof(retry));
         Guard.NotNull(logger, nameof(logger));
         Guard.NotNull(random, nameof(random));
 
         _timeProvider = timeProvider;
-        _options = options.Value.Retry;
+        _options = retry;
         _logger = logger;
         _random = random;
         _pipeline = BuildPipeline();
+    }
+
+    private static RetryPolicyOptions RetryOf(IOptions<MailgunnerOptions> options)
+    {
+        Guard.NotNull(options, nameof(options));
+        return options.Value.Retry;
     }
 
     /// <inheritdoc />
