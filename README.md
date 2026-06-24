@@ -88,7 +88,7 @@ recipient — no library change required.
 ## Run the sample
 
 A runnable version of the exact scenario above lives in
-[`samples/Mailgunner.Sample`](samples/Mailgunner.Sample). It is also the project's single
+[`samples/Mailgunner.Sample`](https://github.com/gberikov/Mailgunner/tree/master/samples/Mailgunner.Sample). It is also the project's single
 environment-gated **live** check: it sends only when credentials are present and is **skipped — not
 failed — when they are absent**.
 
@@ -334,8 +334,8 @@ Tests run fully offline — no network access or Mailgun credentials are require
 
 ## Documentation & history
 
-- Changes are recorded in [CHANGELOG.md](CHANGELOG.md) (Keep a Changelog format).
-- Licensed under the [MIT License](LICENSE).
+- Changes are recorded in [CHANGELOG.md](https://github.com/gberikov/Mailgunner/blob/master/CHANGELOG.md) (Keep a Changelog format).
+- Licensed under the [MIT License](https://github.com/gberikov/Mailgunner/blob/master/LICENSE).
 
 ## Disclaimer
 

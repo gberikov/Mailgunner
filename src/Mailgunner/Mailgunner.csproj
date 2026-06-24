@@ -13,8 +13,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Pack the repository README into the NuGet package (PackageReadmeFile). -->
+    <!--
+      Build-time-only: derives the package version from the `v*` git tag.
+      PrivateAssets="all" keeps MinVer out of the published package's dependency graph.
+    -->
+    <PackageReference Include="MinVer" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Pack the repository README and package icon into the NuGet package. -->
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

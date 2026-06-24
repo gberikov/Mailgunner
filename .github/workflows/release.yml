@@ -1,0 +1,44 @@
+name: Release
+
+# Triggered only by pushing a version tag (e.g. v0.1.0-preview.1). MinVer derives the
+# package version from the tag. The publish step is GATED on the NUGET_API_KEY secret:
+# when the secret is absent the push is skipped cleanly (pack still succeeds), so no
+# publish can happen by accident and nothing is uploaded until the secret is configured.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history + tags so MinVer resolves the exact tagged version.
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Pack
+        run: dotnet pack src/Mailgunner/Mailgunner.csproj --configuration Release --output artifacts
+
+      - name: Push to NuGet (gated on NUGET_API_KEY)
+        # GitHub Actions cannot reference secrets in a job-level `if`; bind the secret to a
+        # step-level env and gate on it. Absent secret => this step is skipped, job stays green.
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        if: ${{ env.NUGET_API_KEY != '' }}
+        run: >
+          dotnet nuget push "artifacts/*.nupkg"
+          --api-key "$NUGET_API_KEY"
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
