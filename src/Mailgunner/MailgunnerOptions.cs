@@ -21,4 +21,12 @@ public sealed class MailgunnerOptions
     /// Gets or sets the Mailgun hosting region that selects the API base URL. Required.
     /// </summary>
     public MailgunRegion Region { get; set; }
+
+    /// <summary>
+    /// Gets or sets the automatic retry and backoff tuning applied to every outbound request. Never
+    /// <see langword="null"/>; the defaults provide constitution-compliant resilience (transient
+    /// failures retried with exponential backoff plus jitter, <c>Retry-After</c> honored) with no
+    /// extra configuration.
+    /// </summary>
+    public RetryPolicyOptions Retry { get; set; } = new();
 }

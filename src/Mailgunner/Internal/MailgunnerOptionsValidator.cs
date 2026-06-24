@@ -37,6 +37,29 @@ internal sealed class MailgunnerOptionsValidator : IValidateOptions<MailgunnerOp
             failures.Add("A valid Mailgun region must be specified (MailgunnerOptions.Region): US or EU.");
         }
 
+        var retry = options.Retry;
+        if (retry is null)
+        {
+            failures.Add("Retry options must be provided (MailgunnerOptions.Retry).");
+        }
+        else
+        {
+            if (retry.MaxRetryAttempts < 0)
+            {
+                failures.Add("The maximum retry attempts must be zero or greater (MailgunnerOptions.Retry.MaxRetryAttempts).");
+            }
+
+            if (retry.BaseDelay <= System.TimeSpan.Zero)
+            {
+                failures.Add("The retry base delay must be greater than zero (MailgunnerOptions.Retry.BaseDelay).");
+            }
+
+            if (retry.MaxSingleWait < retry.BaseDelay)
+            {
+                failures.Add("The maximum single wait must be greater than or equal to the base delay (MailgunnerOptions.Retry.MaxSingleWait).");
+            }
+        }
+
         return failures.Count > 0
             ? ValidateOptionsResult.Fail(failures)
             : ValidateOptionsResult.Success;

@@ -12,7 +12,7 @@ Lightweight, modern, unofficial .NET client for the [Mailgun](https://www.mailgu
 - **Modern & slim** — multi-targets `net8.0` and `netstandard2.0`; minimal dependency
   footprint (`System.Text.Json`, `Polly`, `Microsoft.Extensions.Http`).
 - **Resilient HTTP** — built around typed `HttpClient` via `IHttpClientFactory` with Polly
-  transient-fault handling (planned).
+  transient-fault handling (automatic retry with backoff, on by default).
 - **Documented & strict** — nullable reference types, XML docs, and warnings-as-errors.
 - **Debuggable packages** — deterministic builds with SourceLink and symbol packages.
 
@@ -90,6 +90,50 @@ Mailgun account default in effect.
 > custom-variable (`v:`), and template (`t:`) parameters at **16KB per request**. Mailgunner does not
 > enforce this client-side; exceeding it causes the service to reject the request, surfaced as a
 > `MailgunnerException` carrying the HTTP status code and response body.
+
+## Automatic retry & backoff
+
+Resilience is **on by default** — every outbound request (sends *and* suppressions, which share the
+typed `HttpClient`) is retried automatically on transient failures, so you don't write retry loops:
+
+```csharp
+services.AddMailgunner("mg.example.com", sendingKey, MailgunRegion.Us);
+// 429 / 408 / 5xx and transient transport failures are now retried automatically;
+// Retry-After is honored; a non-429 4xx still surfaces immediately.
+```
+
+- **Retried** — HTTP `429`, `408`, and any `5xx`, plus transport-level faults with no response
+  (timeout, connection reset/refused, DNS failure).
+- **Never retried** — a non-`429` `4xx` (for example `400`/`401`/`403`/`404`) surfaces immediately as
+  a `MailgunnerException` after exactly one attempt, with no wait.
+- **Backoff** — each computed wait grows exponentially with bounded additive jitter, so successive
+  waits are strictly increasing and desynchronized across callers.
+- **`Retry-After`** — when a retryable response carries `Retry-After` (delta-seconds **or** an
+  HTTP-date), that value takes precedence for the next wait.
+- **Mandatory cap** — *every* single wait is clamped to `MaxSingleWait`, so a hostile or far-future
+  `Retry-After` cannot stall a send.
+- **Bounded & observable** — the retry budget is finite; when it is exhausted the final failure
+  surfaces unchanged as a single `MailgunnerException` (last status + body) and a Warning record is
+  logged (status and attempt count only — never the sending key or request body).
+- **Cancelable** — the caller's `CancellationToken` abandons a pending wait promptly.
+
+A first-attempt success makes exactly one attempt with zero waiting, and an eventual success is
+indistinguishable from one.
+
+Tuning is optional (the defaults are production-ready):
+
+```csharp
+services.AddMailgunner(o =>
+{
+    o.Domain = "mg.example.com";
+    o.SendingKey = sendingKey;
+    o.Region = MailgunRegion.Us;
+    o.Retry.MaxRetryAttempts = 3;                       // retries after the first attempt (>= 0; 0 disables)
+    o.Retry.BaseDelay = TimeSpan.FromMilliseconds(500); // starting backoff (> 0)
+    o.Retry.MaxSingleWait = TimeSpan.FromSeconds(30);   // mandatory cap on any single wait (>= BaseDelay)
+    o.Retry.UseJitter = true;                           // bounded additive jitter
+});
+```
 
 ## Suppression lists
 

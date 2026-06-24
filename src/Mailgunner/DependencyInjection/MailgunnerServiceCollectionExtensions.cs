@@ -65,6 +65,10 @@ public static class MailgunnerServiceCollectionExtensions
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<MailgunnerOptions>, MailgunnerOptionsValidator>());
 
+        services.TryAddSingleton(System.TimeProvider.System);
+        services.TryAddSingleton<IRetryRandom, DefaultRetryRandom>();
+        services.TryAddTransient<MailgunResilienceHandler>();
+
         return services.AddHttpClient<IMailgunnerClient, MailgunnerClient>(static (provider, client) =>
         {
             var options = provider.GetRequiredService<IOptions<MailgunnerOptions>>().Value;
@@ -72,6 +76,7 @@ public static class MailgunnerServiceCollectionExtensions
 
             var token = Convert.ToBase64String(Encoding.ASCII.GetBytes($"api:{options.SendingKey.Trim()}"));
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", token);
-        });
+        })
+        .AddHttpMessageHandler<MailgunResilienceHandler>();
     }
 }

@@ -16,6 +16,8 @@ public class SuppressionRemoveClearTests
         var services = new ServiceCollection();
         services.AddMailgunner(Domain, "key-123", MailgunRegion.Us)
                 .ConfigurePrimaryHttpMessageHandler(() => stub);
+        // Keep retryable-status error tests instant: complete any backoff wait immediately.
+        services.AddSingleton<TimeProvider>(new RecordingTimeProvider());
         var provider = services.BuildServiceProvider();
         return (provider.GetRequiredService<IMailgunnerClient>(), stub);
     }

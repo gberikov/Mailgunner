@@ -164,6 +164,20 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
     /// </summary>
     public Action<CancellationToken>? OnSend { get; set; }
 
+    /// <summary>
+    /// An optional per-request-index <c>Retry-After</c> header. When it returns a non-null string for
+    /// an index, that value (delta-seconds or HTTP-date) is attached to the response's
+    /// <c>Retry-After</c> header. Lets a test drive the server-requested-wait path.
+    /// </summary>
+    public Func<int, string?>? RetryAfterSelector { get; set; }
+
+    /// <summary>
+    /// An optional per-request-index switch that, when it returns <see langword="true"/>, makes the
+    /// fake throw a transient transport exception (no HTTP response) instead of returning one. Lets a
+    /// test exercise transport-level retry and exhaustion entirely offline.
+    /// </summary>
+    public Func<int, bool>? TransientFailureSelector { get; set; }
+
     /// <inheritdoc />
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
@@ -212,13 +226,26 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
         OnSend?.Invoke(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (TransientFailureSelector?.Invoke(index) == true)
+        {
+            throw new HttpRequestException("Simulated transient transport failure.");
+        }
+
         var (statusCode, body) = ResponseSelector?.Invoke(index) ?? (_statusCode, _responseBody);
 
-        return new HttpResponseMessage(statusCode)
+        var response = new HttpResponseMessage(statusCode)
         {
             Content = new StringContent(body),
             RequestMessage = request,
         };
+
+        var retryAfter = RetryAfterSelector?.Invoke(index);
+        if (retryAfter is not null)
+        {
+            response.Headers.TryAddWithoutValidation("Retry-After", retryAfter);
+        }
+
+        return response;
     }
 
     private static string Unquote(string? name) =>
