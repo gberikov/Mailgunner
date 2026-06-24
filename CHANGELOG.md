@@ -43,5 +43,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are omitted when unset/empty. A message must be either templated or inline — supplying both a
   `Template` and an inline `Text`/`Html` body (or template data without a `Template` name) throws
   `ArgumentException` before any request. Plain sends are unchanged.
+- Personalized mass send: `IMailgunnerClient.SendBatchAsync(MailgunBatchMessage, CancellationToken)`
+  delivers one stored-template message to a large recipient list, automatically chunking it into the
+  fewest possible `multipart/form-data` requests (at most 1000 recipients each, `ceil(N / 1000)`
+  requests). New public types `MailgunBatchMessage` (sender, subject, template + optional version/
+  generated-text, global `TemplateVariables`, and an ordered `Recipients` list) and `BatchRecipient`
+  (an address plus that recipient's own `Variables`). Each request reuses the same template and global
+  `t:variables` and carries a single `recipient-variables` JSON object keyed by each recipient's bare
+  address (a recipient with no variables serializes to `{}`), so Mailgun delivers an individual,
+  personalized message per recipient. Recipient order is preserved across chunk boundaries; an empty
+  list is a no-op returning an empty result set; a duplicate recipient address throws
+  `ArgumentException` before any request. Sending is sequential and fail-fast: the first non-success
+  response throws `MailgunnerException` (status + body) and issues no further requests, returning one
+  `SendResult` per chunk on success.
 
 [Unreleased]: https://github.com/gberikov/Mailgunner/commits/master
