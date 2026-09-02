@@ -217,6 +217,7 @@ Mailgun account default in effect.
   a named zone.
 - **Custom headers & variables** — `Options.CustomHeaders` (`h:` prefix) and `Options.CustomVariables`
   (`v:` prefix, string values).
+- **Reply-To** — `message.ReplyTo = "support@example.com"` emits the `Reply-To` header.
 
 > **16KB limit.** Mailgun caps the **combined** size of the option (`o:`), custom-header (`h:`),
 > custom-variable (`v:`), and template (`t:`) parameters at **16KB per request**. Mailgunner does not

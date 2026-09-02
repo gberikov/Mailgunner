@@ -56,11 +56,20 @@ public sealed class MailgunBatchMessage
         = new System.Collections.Generic.List<BatchRecipient>();
 
     /// <summary>
-    /// Gets the optional send enrichments (tags, test mode, tracking toggles, scheduled delivery time,
-    /// custom headers, and custom variables) applied to the batch. Empty by default; every member is
-    /// optional and is repeated identically on every chunk.
+    /// Gets or sets the optional send enrichments (tags, test mode, tracking toggles, scheduled delivery
+    /// time, custom headers, and custom variables) applied to the batch. Empty by default; every member
+    /// is optional and is repeated identically on every chunk. Never set to null; a null value is
+    /// rejected when the request is built.
     /// </summary>
-    public MailgunSendOptions Options { get; } = new MailgunSendOptions();
+    public MailgunSendOptions Options { get; set; } = new MailgunSendOptions();
+
+    /// <summary>
+    /// Gets or sets the optional reply-to address, emitted as the <c>Reply-To</c> header
+    /// (<c>h:Reply-To</c>) on every chunk. Setting it and also supplying a <c>Reply-To</c> entry in
+    /// <see cref="MailgunSendOptions.CustomHeaders"/> (matched case-insensitively) throws
+    /// <see cref="System.ArgumentException"/> when the request is built.
+    /// </summary>
+    public EmailAddress? ReplyTo { get; set; }
 
     /// <summary>
     /// Gets the file attachments delivered alongside every chunk's message. Each is emitted as a

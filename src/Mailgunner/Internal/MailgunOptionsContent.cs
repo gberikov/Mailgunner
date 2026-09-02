@@ -20,13 +20,24 @@ internal static class MailgunOptionsContent
     /// <param name="options">The send options (tags, test mode, tracking, delivery time, headers, variables).</param>
     /// <param name="attachments">The downloadable attachments, emitted as <c>attachment</c> file parts.</param>
     /// <param name="inlineFiles">The embedded files, emitted as <c>inline</c> file parts.</param>
-    /// <exception cref="System.ArgumentException">A custom header or variable has a null/blank name.</exception>
+    /// <param name="replyTo">The optional typed reply-to address, emitted as <c>h:Reply-To</c>.</param>
+    /// <exception cref="System.ArgumentException">
+    /// <paramref name="options"/> is null, a custom header or variable has a null/blank name, or
+    /// <paramref name="replyTo"/> conflicts with a manual <c>Reply-To</c> entry in
+    /// <see cref="MailgunSendOptions.CustomHeaders"/>.
+    /// </exception>
     public static void Append(
         System.Net.Http.MultipartFormDataContent content,
         MailgunSendOptions options,
         System.Collections.Generic.IEnumerable<MailgunFile> attachments,
-        System.Collections.Generic.IEnumerable<MailgunFile> inlineFiles)
+        System.Collections.Generic.IEnumerable<MailgunFile> inlineFiles,
+        EmailAddress? replyTo)
     {
+        if (options is null)
+        {
+            throw new System.ArgumentException("Message options must not be null.", nameof(options));
+        }
+
         // 1. Tags — one repeated o:tag per non-blank entry, in order, not de-duplicated.
         foreach (var tag in options.Tags)
         {
@@ -98,6 +109,21 @@ internal static class MailgunOptionsContent
         if (options.ListUnsubscribe is ListUnsubscribeOptions unsubscribe)
         {
             AppendListUnsubscribe(content, options, unsubscribe);
+        }
+
+        // 7c. Reply-To — typed; conflicts with a manual header of the same name.
+        if (replyTo is EmailAddress reply && !string.IsNullOrWhiteSpace(reply.Address))
+        {
+            foreach (var key in options.CustomHeaders.Keys)
+            {
+                if (string.Equals(key, "Reply-To", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new System.ArgumentException(
+                        "Reply-To is set both via ReplyTo and a manual CustomHeaders entry; use only one.", nameof(options));
+                }
+            }
+
+            MailgunHttp.AddField(content, "h:Reply-To", reply.ToString());
         }
 
         // 8. Attachments — downloadable file parts.

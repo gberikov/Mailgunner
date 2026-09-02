@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ReplyTo on MailgunMessage and MailgunBatchMessage (emitted as h:Reply-To); Options is now settable so one MailgunSendOptions can be shared.
 - RetryPolicyOptions.AttemptTimeout (default 100 s) bounds each attempt; the typed HttpClient's overall Timeout is now infinite so retries and backoff are never cut short by it.
 - ISuppressionList<T>.AddRangeAsync for bulk adds (chunks of 1000 per request).
 - MailgunnerException.FailedChunkIndex / AcceptedResults expose which batch chunks were accepted before a failure.
