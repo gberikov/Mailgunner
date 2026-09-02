@@ -1,5 +1,7 @@
 using System.Net;
+using Mailgunner.Internal;
 using Mailgunner.Tests.Fakes;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Mailgunner.Tests.Retry;
@@ -85,12 +87,13 @@ public class BackoffIncreasesWithJitterTests
     [Fact]
     public async Task A_large_base_delay_saturates_at_the_cap_instead_of_overflowing()
     {
-        // BaseDelay == MaxSingleWait so even attempt 0's pre-jitter value already meets the cap:
-        // every one of the 10 waits (2^9x growth by the last) must clamp to the same cap, which
-        // (unprotected) would multiply base-delay ticks past long.MaxValue and go negative. The cap
-        // is kept under .NET's own ~49.7-day Task.Delay ceiling so the wait can actually be scheduled
+        // End-to-end: BaseDelay == MaxSingleWait so every one of the 10 waits (2^9x growth by the
+        // last) deterministically clamps to the same cap regardless of the jitter draw. The cap is
+        // kept under .NET's own ~49.7-day Task.Delay ceiling so the wait can actually be scheduled
         // through the real pipeline (a day-scale cap is still ~86,400x anything the other retry
-        // tests use, which stay in the millisecond/second range).
+        // tests use, which stay in the millisecond/second range). This does NOT exercise magnitudes
+        // anywhere near a long-tick overflow (30d * 2^9 ticks is nowhere close to long.MaxValue) —
+        // that guard is pinned directly, below, since no real delay that large can reach Task.Delay.
         var stub = new StubHttpMessageHandler(HttpStatusCode.ServiceUnavailable, "{\"message\":\"busy\"}");
         var time = new RecordingTimeProvider();
         var client = RetryTestHarness.BuildClient(stub, time, configure: o =>
@@ -105,5 +108,29 @@ public class BackoffIncreasesWithJitterTests
 
         Assert.Equal(10, time.Delays.Count);
         Assert.All(time.Delays, d => Assert.Equal(TimeSpan.FromDays(30), d));
+    }
+
+    [Fact]
+    public void Backoff_at_the_extreme_configured_magnitude_saturates_without_going_negative()
+    {
+        // Directly pins ComputeBackoffDelay (internal, via InternalsVisibleTo) at magnitudes no real
+        // wait can reach end-to-end: BaseDelay = MaxSingleWait = TimeSpan.MaxValue, at the highest
+        // attempt index MaxAllowedRetryAttempts permits. TimeSpan.MaxValue.Ticks == long.MaxValue,
+        // whose nearest double is exactly 2^63 -- one past what `long` can hold. Unprotected, casting
+        // that back to `long` silently wraps to a large negative TimeSpan instead of throwing.
+        var stub = new StubHttpMessageHandler(HttpStatusCode.OK, RetryTestHarness.SuccessBody);
+        using var provider = RetryTestHarness.BuildProvider(stub, configure: o =>
+        {
+            o.Retry.MaxRetryAttempts = 10;
+            o.Retry.BaseDelay = TimeSpan.MaxValue;
+            o.Retry.MaxSingleWait = TimeSpan.MaxValue;
+            o.Retry.UseJitter = false; // isolate the boundary from the random draw
+        });
+        var handler = provider.GetRequiredService<MailgunResilienceHandler>();
+
+        var delay = handler.ComputeBackoffDelay(9); // 0-based: the 10th and last permitted attempt
+
+        Assert.True(delay >= TimeSpan.Zero, $"expected a non-negative delay, got {delay}");
+        Assert.Equal(TimeSpan.MaxValue, delay);
     }
 }

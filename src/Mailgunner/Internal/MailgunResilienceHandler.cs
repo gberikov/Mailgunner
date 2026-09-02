@@ -221,15 +221,37 @@ internal sealed class MailgunResilienceHandler : DelegatingHandler
             }
         }
 
-        // Fallback: exponential base growth plus bounded additive jitter, then cap. Computed in
-        // double and saturated at the cap before converting back to TimeSpan, so a large base
-        // delay or attempt count cannot overflow the long tick count Multiply used to compute.
+        // Fallback: exponential base growth plus bounded additive jitter, then cap.
+        return ComputeBackoffDelay(attemptNumber);
+    }
+
+    /// <summary>
+    /// Computes the exponential-backoff-plus-jitter wait for the given 0-based retry attempt,
+    /// saturated at <see cref="RetryPolicyOptions.MaxSingleWait"/>. Computed in <c>double</c> so a
+    /// large <see cref="RetryPolicyOptions.BaseDelay"/> or attempt count cannot overflow the tick
+    /// count the way multiplying <see cref="TimeSpan"/> values directly used to. <c>internal</c>
+    /// (rather than <c>private</c>) so the saturating behavior can be pinned directly at
+    /// configurations — such as <see cref="TimeSpan.MaxValue"/> — that a real wait can never reach
+    /// end-to-end, since a wait that long exceeds what <see cref="Task.Delay(TimeSpan)"/> itself can
+    /// schedule.
+    /// </summary>
+    /// <param name="attemptNumber">The 0-based retry attempt number.</param>
+    /// <returns>The computed, capped wait.</returns>
+    internal TimeSpan ComputeBackoffDelay(int attemptNumber)
+    {
         var capTicks = (double)_options.MaxSingleWait.Ticks;
         var baseTicks = Math.Min(_options.BaseDelay.Ticks * Math.Pow(2, attemptNumber), capTicks);
         var jitterTicks = _options.UseJitter ? baseTicks * _random.NextDouble() * JitterFraction : 0d;
-        var totalTicks = Math.Min(baseTicks + jitterTicks, capTicks);
+        var totalTicks = baseTicks + jitterTicks;
 
-        return TimeSpan.FromTicks((long)totalTicks);
+        // capTicks may itself be the double rounding of long.MaxValue up to exactly 2^63 (when
+        // MaxSingleWait is TimeSpan.MaxValue), which does not fit back into a long. Comparing in
+        // double space and returning the configured MaxSingleWait verbatim once saturated avoids
+        // ever casting a value that could round up to (or past) that boundary — an unchecked cast
+        // there would silently wrap to a large negative TimeSpan instead of throwing.
+        return totalTicks >= capTicks
+            ? _options.MaxSingleWait
+            : TimeSpan.FromTicks((long)totalTicks);
     }
 
     /// <summary>Per-execution mutable retry count carried through the resilience context.</summary>
