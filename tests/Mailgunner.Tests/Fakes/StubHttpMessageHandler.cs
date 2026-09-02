@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 
 namespace Mailgunner.Tests.Fakes;
 
@@ -215,7 +216,15 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
             foreach (var part in multipart)
             {
                 var name = Unquote(part.Headers.ContentDisposition?.Name);
-                var value = await part.ReadAsStringAsync(CancellationToken.None).ConfigureAwait(false);
+                // CopyToAsync (rather than ReadAsStringAsync) is used deliberately: ReadAsStringAsync
+                // buffers the content into the HttpContent instance itself, so a second read of the
+                // same part (the resilience handler resends the same HttpRequestMessage/content on a
+                // retry) would silently return the cached bytes instead of re-invoking
+                // SerializeToStreamAsync — masking whether a stream-backed attachment's factory is
+                // actually re-opened per attempt, the way the real transport re-serializes it.
+                using var partBuffer = new MemoryStream();
+                await part.CopyToAsync(partBuffer, CancellationToken.None).ConfigureAwait(false);
+                var value = Encoding.UTF8.GetString(partBuffer.ToArray());
                 var rawFileName = part.Headers.ContentDisposition?.FileName;
                 var fileName = rawFileName is null ? null : rawFileName.Trim('"');
                 var contentType = part.Headers.ContentType?.MediaType;

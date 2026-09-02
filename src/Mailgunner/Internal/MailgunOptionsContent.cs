@@ -276,7 +276,9 @@ internal static class MailgunOptionsContent
 
     private static void AddFile(System.Net.Http.MultipartFormDataContent content, string field, MailgunFile file)
     {
-        var fileContent = new System.Net.Http.ByteArrayContent(file.Content);
+        System.Net.Http.HttpContent fileContent = file.OpenContent is { } open
+            ? new StreamFactoryContent(open, file.Length)
+            : new System.Net.Http.ByteArrayContent(file.Content!);
         fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
             string.IsNullOrWhiteSpace(file.ContentType) ? DefaultContentType : file.ContentType!);
         content.Add(fileContent, field, file.FileName);

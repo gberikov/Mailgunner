@@ -207,8 +207,10 @@ the `Attachments` and `InlineFiles` collections. Every knob is optional; omittin
 Mailgun account default in effect.
 
 - **Attachments & inline files** — add `MailgunFile(fileName, content, contentType?)` to `Attachments`
-  (downloadable) or `InlineFiles` (embeddable, referenced from HTML by content id). When the content
-  type is omitted it defaults to `application/octet-stream`.
+  (downloadable) or `InlineFiles` (embeddable, referenced from HTML by content id), or
+  `MailgunFile(fileName, () => File.OpenRead(path), contentType)` to stream large files without
+  buffering; the factory is called once per request. When the content type is omitted it defaults to
+  `application/octet-stream`.
 - **Tags** — `Options.Tags` may carry several values; all are sent (not de-duplicated).
 - **Test mode** — `Options.TestMode = true` exercises the pipeline without delivering.
 - **Tracking** — `Options.TrackingOpens` (on/off) and `Options.TrackingClicks`

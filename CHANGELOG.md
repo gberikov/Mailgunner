@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ISuppressionList<T>.AddRangeAsync for bulk adds (chunks of 1000 per request).
 - Batch sends without a stored template: MailgunBatchMessage.Text / Html with %recipient.var% placeholders.
 - MailgunnerException.FailedChunkIndex / AcceptedResults expose which batch chunks were accepted before a failure.
+- Stream-backed MailgunFile(fileName, Func<Stream>, contentType, length); Content is now nullable for such files.
 
 - Domain webhook management: a new `client.Webhooks` (`IMailgunWebhooks`) capability area that lists,
   reads, creates, updates, and deletes a domain's webhook registrations over Mailgun's v3 webhook
