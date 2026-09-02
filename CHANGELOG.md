@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Domain webhook management now targets Mailgun's actual path `/v3/domains/{domain}/webhooks`; the previous `/v3/{domain}/webhooks` returned HTTP 404 for every operation.
 - Suppression entries' CreatedAt is now populated: Mailgun's "…UTC" timestamps were silently parsed to null.
 - Suppression AddAsync now sends the JSON array shape Mailgun documents; a bare JSON object was rejected.
+- Calling the unnamed AddMailgunner more than once no longer stacks a second retry handler (which multiplied attempts and waits); the latest options still win.
 
 ### Added
 

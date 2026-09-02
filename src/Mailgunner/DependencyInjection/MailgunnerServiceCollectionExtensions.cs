@@ -71,6 +71,15 @@ public static class MailgunnerServiceCollectionExtensions
         services.TryAddSingleton<IRetryRandom, DefaultRetryRandom>();
         services.TryAddTransient<MailgunResilienceHandler>();
 
+        if (IsUnnamedClientRegistered(services))
+        {
+            // Re-registration: the typed client, its ConfigureHttpClient delegate (which reads the
+            // options lazily, so the new settings apply) and the resilience handler are already wired.
+            // Only the options changed above; return a builder for the same named client without
+            // appending a second handler to the chain.
+            return services.AddHttpClient(nameof(IMailgunnerClient));
+        }
+
         return services.AddHttpClient<IMailgunnerClient, MailgunnerClient>(static (provider, client) =>
         {
             var options = provider.GetRequiredService<IOptions<MailgunnerOptions>>().Value;
@@ -157,6 +166,20 @@ public static class MailgunnerServiceCollectionExtensions
         ReserveName(services, name);
         services.AddOptions<MailgunnerOptions>(name).Bind(configuration);
         return WireNamedClient(services, name);
+    }
+
+    /// <summary>Returns whether the unnamed typed client has already been wired into <paramref name="services"/>.</summary>
+    private static bool IsUnnamedClientRegistered(IServiceCollection services)
+    {
+        for (var i = 0; i < services.Count; i++)
+        {
+            if (services[i].ServiceType == typeof(IMailgunnerClient))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
