@@ -79,7 +79,8 @@ foreach (SendResult result in results)
     Console.WriteLine($"sent: id={result.Id} status={result.Message}");
 ```
 
-Why the bridge (step 3)? The library's batch send is **stored-template-only**: it emits the global
+Why the bridge (step 3)? A batch can use a stored template (this example) **or** inline `Text`/`Html`
+with `%recipient.var%` placeholders. This example's stored-template path emits the global
 `t:variables` (which a Handlebars template reads as `{{var}}`) and a per-recipient
 `recipient-variables` object (addressed as `%recipient.var%`). Mapping each `{{var}}` to its
 `%recipient.var%` token in `TemplateVariables` is what makes Mailgun render a **distinct** value per

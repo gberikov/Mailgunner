@@ -1,11 +1,12 @@
 namespace Mailgunner;
 
 /// <summary>
-/// One personalized mass send: a stored-template message plus an ordered recipient list where each
-/// recipient carries its own variables. <see cref="IMailgunnerClient.SendBatchAsync"/> automatically
-/// splits the <see cref="Recipients"/> into consecutive chunks of at most 1000 and issues one
-/// <c>multipart/form-data</c> request per chunk, reusing the same <see cref="Template"/> and
-/// <see cref="TemplateVariables"/> on every request. A <see cref="Template"/> is required.
+/// One personalized mass send: a stored-template or inline-body message plus an ordered recipient list
+/// where each recipient carries its own variables. <see cref="IMailgunnerClient.SendBatchAsync"/>
+/// automatically splits the <see cref="Recipients"/> into consecutive chunks of at most 1000 and issues
+/// one <c>multipart/form-data</c> request per chunk, reusing the same <see cref="Template"/> (or
+/// <see cref="Text"/>/<see cref="Html"/>) and <see cref="TemplateVariables"/> on every request. Exactly
+/// one of <see cref="Template"/> or an inline body (<see cref="Text"/>/<see cref="Html"/>) is required.
 /// </summary>
 public sealed class MailgunBatchMessage
 {
@@ -20,8 +21,18 @@ public sealed class MailgunBatchMessage
     public string? Subject { get; set; }
 
     /// <summary>
-    /// Gets or sets the name of the server-side stored template to render. Required (non-blank);
-    /// emitted as <c>template</c> on every chunk.
+    /// Gets or sets the plain-text body for an inline (non-template) batch. Use <c>%recipient.var%</c>
+    /// placeholders that Mailgun fills from each recipient's <see cref="BatchRecipient.Variables"/>.
+    /// Mutually exclusive with <see cref="Template"/>.
+    /// </summary>
+    public string? Text { get; set; }
+
+    /// <summary>Gets or sets the HTML body for an inline (non-template) batch; see <see cref="Text"/>.</summary>
+    public string? Html { get; set; }
+
+    /// <summary>
+    /// Gets or sets the name of the server-side stored template to render. Required unless
+    /// <see cref="Text"/> or <see cref="Html"/> is set; emitted as <c>template</c> on every chunk.
     /// </summary>
     public string? Template { get; set; }
 

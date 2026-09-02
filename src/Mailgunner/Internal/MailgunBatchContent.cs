@@ -3,8 +3,9 @@ namespace Mailgunner.Internal;
 /// <summary>
 /// Validates a <see cref="MailgunBatchMessage"/>, partitions its recipients into chunks of at most
 /// <see cref="MaxRecipientsPerRequest"/>, and builds the <c>multipart/form-data</c> body for one chunk.
-/// Each chunk reuses the same <c>template</c>/<c>t:*</c> fields (mirroring feature 004's rules) and adds
-/// a single <c>recipient-variables</c> JSON object keyed by each recipient's bare address.
+/// Each chunk reuses the same <c>template</c>/<c>t:*</c> fields, or the same inline <c>text</c>/<c>html</c>
+/// body (mirroring feature 004's rules), and adds a single <c>recipient-variables</c> JSON object keyed
+/// by each recipient's bare address.
 /// </summary>
 internal static class MailgunBatchContent
 {
@@ -15,13 +16,15 @@ internal static class MailgunBatchContent
     public const int MaxRecipientsPerRequest = 1000;
 
     /// <summary>
-    /// Validates the batch before any request is issued: null message, missing sender, missing/blank
-    /// template, and duplicate recipient addresses are all rejected. An empty recipient list is valid.
+    /// Validates the batch before any request is issued: null message, missing sender, a missing or
+    /// conflicting template/inline-body combination, template data without a template, and duplicate
+    /// recipient addresses are all rejected. An empty recipient list is valid.
     /// </summary>
     /// <param name="message">The batch to validate.</param>
     /// <exception cref="System.ArgumentNullException"><paramref name="message"/> is null.</exception>
     /// <exception cref="System.ArgumentException">
-    /// The batch is missing a sender, is missing a template, or contains a duplicate recipient address.
+    /// The batch is missing a sender, has neither a Template nor an inline body (or both), has template
+    /// data without a Template, or contains a duplicate recipient address.
     /// </exception>
     public static void Validate(MailgunBatchMessage message)
     {
@@ -32,9 +35,31 @@ internal static class MailgunBatchContent
             throw new System.ArgumentException("A sender (From) is required.", nameof(message));
         }
 
-        if (string.IsNullOrWhiteSpace(message.Template))
+        var hasBody = !string.IsNullOrEmpty(message.Text) || !string.IsNullOrEmpty(message.Html);
+        var hasTemplate = !string.IsNullOrWhiteSpace(message.Template);
+
+        if (!hasBody && !hasTemplate)
         {
-            throw new System.ArgumentException("A batch send requires a Template name.", nameof(message));
+            throw new System.ArgumentException(
+                "A batch send requires a Template name or an inline body (Text or Html).", nameof(message));
+        }
+
+        if (hasBody && hasTemplate)
+        {
+            throw new System.ArgumentException(
+                "A batch cannot have both a Template and an inline body (Text or Html); supply one or the other.",
+                nameof(message));
+        }
+
+        var hasTemplateData = message.TemplateVariables.Count > 0
+            || !string.IsNullOrWhiteSpace(message.TemplateVersion)
+            || message.GenerateTextFromTemplate;
+
+        if (hasTemplateData && !hasTemplate)
+        {
+            throw new System.ArgumentException(
+                "Template variables, a template version, or a generated-text request require a Template name.",
+                nameof(message));
         }
 
         var seen = new System.Collections.Generic.HashSet<string>(System.StringComparer.Ordinal);
@@ -83,11 +108,12 @@ internal static class MailgunBatchContent
 
     /// <summary>
     /// Builds one chunk's multipart body: <c>from</c>, one repeated <c>to</c> part per recipient (never
-    /// comma-joined), optional <c>subject</c>, the reused <c>template</c>/<c>t:version</c>/<c>t:text</c>
-    /// and global <c>t:variables</c> (omitted when empty), and a single <c>recipient-variables</c> JSON
-    /// object keyed by each recipient's bare address.
+    /// comma-joined), optional <c>subject</c>, either the reused <c>text</c>/<c>html</c> inline body or
+    /// the reused <c>template</c>/<c>t:version</c>/<c>t:text</c> and global <c>t:variables</c> (omitted
+    /// when empty), and a single <c>recipient-variables</c> JSON object keyed by each recipient's bare
+    /// address.
     /// </summary>
-    /// <param name="message">The batch supplying the shared template fields and global variables.</param>
+    /// <param name="message">The batch supplying the shared body/template fields and global variables.</param>
     /// <param name="chunk">The recipients in this chunk, in order.</param>
     /// <returns>The multipart content to POST for this chunk.</returns>
     public static System.Net.Http.MultipartFormDataContent BuildChunk(
@@ -108,21 +134,34 @@ internal static class MailgunBatchContent
             MailgunHttp.AddField(content, "subject", message.Subject);
         }
 
-        MailgunHttp.AddField(content, "template", message.Template!);
-
-        if (!string.IsNullOrWhiteSpace(message.TemplateVersion))
+        if (!string.IsNullOrEmpty(message.Text))
         {
-            MailgunHttp.AddField(content, "t:version", message.TemplateVersion!);
+            MailgunHttp.AddField(content, "text", message.Text!);
         }
 
-        if (message.GenerateTextFromTemplate)
+        if (!string.IsNullOrEmpty(message.Html))
         {
-            MailgunHttp.AddField(content, "t:text", "yes");
+            MailgunHttp.AddField(content, "html", message.Html!);
         }
 
-        if (message.TemplateVariables.Count > 0)
+        if (!string.IsNullOrWhiteSpace(message.Template))
         {
-            MailgunHttp.AddField(content, "t:variables", System.Text.Json.JsonSerializer.Serialize(message.TemplateVariables));
+            MailgunHttp.AddField(content, "template", message.Template!);
+
+            if (!string.IsNullOrWhiteSpace(message.TemplateVersion))
+            {
+                MailgunHttp.AddField(content, "t:version", message.TemplateVersion!);
+            }
+
+            if (message.GenerateTextFromTemplate)
+            {
+                MailgunHttp.AddField(content, "t:text", "yes");
+            }
+
+            if (message.TemplateVariables.Count > 0)
+            {
+                MailgunHttp.AddField(content, "t:variables", System.Text.Json.JsonSerializer.Serialize(message.TemplateVariables));
+            }
         }
 
         MailgunHttp.AddField(content, "recipient-variables", SerializeRecipientVariables(chunk));
