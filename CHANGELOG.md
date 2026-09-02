@@ -77,6 +77,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI/release supply-chain hardening: GitHub Actions are pinned to commit SHAs (not mutable `@v4`
   tags), a failing `dotnet list package --vulnerable` audit gate was added to CI, and a Dependabot
   configuration keeps the action pins and NuGet packages current.
+- EmailAddress now rejects list/delimiter characters (, ; < > " ( ) [ ] \ and whitespace) and malformed
+  '@' placement, so a single caller-supplied value can no longer smuggle extra recipients.
 
 ### Changed
 

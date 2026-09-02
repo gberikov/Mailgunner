@@ -15,8 +15,11 @@ public readonly struct EmailAddress : System.IEquatable<EmailAddress>
     /// <param name="address">The email address. Required, non-empty.</param>
     /// <param name="displayName">The optional display name.</param>
     /// <exception cref="System.ArgumentException">
-    /// <paramref name="address"/> is null, empty, or whitespace, or either argument contains a control
-    /// character (for example a carriage return or line feed, which could otherwise inject headers).
+    /// <paramref name="address"/> is null, empty, or whitespace; contains a control character (for
+    /// example a carriage return or line feed, which could otherwise inject headers); contains a
+    /// list/delimiter character (<c>, ; &lt; &gt; " ( ) [ ] \</c>) or whitespace; or is not a bare
+    /// <c>local@domain</c> value (exactly one <c>@</c>, not at either end). <paramref name="displayName"/>
+    /// contains a control character.
     /// </exception>
     public EmailAddress(string address, string? displayName = null)
     {
@@ -31,6 +34,14 @@ public readonly struct EmailAddress : System.IEquatable<EmailAddress>
                 "An email address must not contain control characters.", nameof(address));
         }
 
+        if (!IsPlainAddrSpec(address))
+        {
+            throw new System.ArgumentException(
+                "An email address must be a bare addr-spec: exactly one '@' with a non-empty local part and domain, "
+                + "and no whitespace, quotes, brackets, parentheses, backslashes, commas, or semicolons.",
+                nameof(address));
+        }
+
         if (displayName is not null && TextGuards.ContainsControlCharacter(displayName))
         {
             throw new System.ArgumentException(
@@ -39,6 +50,31 @@ public readonly struct EmailAddress : System.IEquatable<EmailAddress>
 
         Address = address;
         DisplayName = displayName;
+    }
+
+    private static readonly char[] DelimiterCharacters = { ',', ';', '<', '>', '"', '(', ')', '[', ']', '\\' };
+
+    /// <summary>
+    /// Accepts only a bare <c>local@domain</c> form so a single value can never be parsed by the service
+    /// as an address list, a display-name form, or a comment. Deliberately not a full RFC 5322 validator.
+    /// </summary>
+    private static bool IsPlainAddrSpec(string address)
+    {
+        if (address.IndexOfAny(DelimiterCharacters) >= 0)
+        {
+            return false;
+        }
+
+        foreach (var c in address)
+        {
+            if (char.IsWhiteSpace(c))
+            {
+                return false;
+            }
+        }
+
+        var at = address.IndexOf('@');
+        return at > 0 && at < address.Length - 1 && address.IndexOf('@', at + 1) < 0;
     }
 
     /// <summary>
