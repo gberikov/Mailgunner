@@ -13,6 +13,7 @@ public class WebhookEventTypeMappingTests
     [InlineData(WebhookEventType.Complained, "complained")]
     [InlineData(WebhookEventType.PermanentFail, "permanent_fail")]
     [InlineData(WebhookEventType.TemporaryFail, "temporary_fail")]
+    [InlineData(WebhookEventType.Accepted, "accepted")]
     public void Each_event_type_round_trips_through_its_wire_token(WebhookEventType eventType, string token)
     {
         Assert.Equal(token, WebhookEventTypes.ToToken(eventType));
@@ -20,7 +21,6 @@ public class WebhookEventTypeMappingTests
     }
 
     [Theory]
-    [InlineData("accepted")]
     [InlineData("not-a-real-event")]
     [InlineData("")]
     [InlineData(null)]

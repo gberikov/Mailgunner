@@ -58,6 +58,7 @@ internal static class WebhookEventTypes
         WebhookEventType.Complained => "complained",
         WebhookEventType.PermanentFail => "permanent_fail",
         WebhookEventType.TemporaryFail => "temporary_fail",
+        WebhookEventType.Accepted => "accepted",
         _ => throw new System.ArgumentOutOfRangeException(
             nameof(eventType), eventType, "Unknown webhook event type."),
     };
@@ -78,6 +79,7 @@ internal static class WebhookEventTypes
         "complained" => WebhookEventType.Complained,
         "permanent_fail" => WebhookEventType.PermanentFail,
         "temporary_fail" => WebhookEventType.TemporaryFail,
+        "accepted" => WebhookEventType.Accepted,
         _ => null,
     };
 }

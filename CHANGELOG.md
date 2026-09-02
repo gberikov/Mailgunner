@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- WebhookEventType.Accepted.
 - Send options RequireTls, SkipVerification, Tracking, SendingIp, SendingIpPool, TimeZoneLocalize and MailgunMessage.AmpHtml.
 - ReplyTo on MailgunMessage and MailgunBatchMessage (emitted as h:Reply-To); Options is now settable so one MailgunSendOptions can be shared.
 - RetryPolicyOptions.AttemptTimeout (default 100 s) bounds each attempt; the typed HttpClient's overall Timeout is now infinite so retries and backoff are never cut short by it.
