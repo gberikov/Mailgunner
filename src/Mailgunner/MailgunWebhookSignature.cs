@@ -10,7 +10,7 @@ namespace Mailgunner;
 /// <remarks>
 /// Verification answers only "was this signed by the holder of the signing key?". The 4-argument
 /// <see cref="Verify(string, string, string, string)"/> overload performs no timestamp-freshness
-/// check; use the <see cref="Verify(string, string, string, string, System.TimeSpan, System.TimeProvider)"/>
+/// check; use the <see cref="Verify(string, string, string, string, TimeSpan, TimeProvider)"/>
 /// overload to also reject a stale or future timestamp. Token-reuse (replay) checks remain the
 /// consumer's responsibility either way.
 /// </remarks>
@@ -38,7 +38,7 @@ public static class MailgunWebhookSignature
     /// <see langword="null"/>, empty, wrong-length, or non-hexadecimal signature) yields
     /// <see langword="false"/> rather than throwing.
     /// </returns>
-    /// <exception cref="System.ArgumentException">
+    /// <exception cref="ArgumentException">
     /// <paramref name="signingKey"/> is <see langword="null"/>, empty, or whitespace. This is a
     /// configuration error surfaced to the caller, distinct from a forged webhook.
     /// </exception>
@@ -46,7 +46,7 @@ public static class MailgunWebhookSignature
     {
         if (string.IsNullOrWhiteSpace(signingKey))
         {
-            throw new System.ArgumentException("A webhook signing key is required.", nameof(signingKey));
+            throw new ArgumentException("A webhook signing key is required.", nameof(signingKey));
         }
 
         // The three webhook-supplied values are untrusted: any missing field fails closed to
@@ -83,21 +83,21 @@ public static class MailgunWebhookSignature
     /// <param name="token">The webhook's token field (untrusted input).</param>
     /// <param name="signature">The webhook's hex signature field (untrusted input).</param>
     /// <param name="maxAge">The largest accepted distance between <paramref name="timestamp"/> and now. Must be positive.</param>
-    /// <param name="timeProvider">The clock to use; <see cref="System.TimeProvider.System"/> when null.</param>
+    /// <param name="timeProvider">The clock to use; <see cref="TimeProvider.System"/> when null.</param>
     /// <returns><see langword="true"/> when the signature is valid and the timestamp is fresh; otherwise <see langword="false"/>.</returns>
-    /// <exception cref="System.ArgumentException"><paramref name="signingKey"/> is null, empty, or whitespace.</exception>
-    /// <exception cref="System.ArgumentOutOfRangeException"><paramref name="maxAge"/> is not positive.</exception>
+    /// <exception cref="ArgumentException"><paramref name="signingKey"/> is null, empty, or whitespace.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxAge"/> is not positive.</exception>
     public static bool Verify(
         string signingKey,
         string timestamp,
         string token,
         string signature,
-        System.TimeSpan maxAge,
-        System.TimeProvider? timeProvider = null)
+        TimeSpan maxAge,
+        TimeProvider? timeProvider = null)
     {
-        if (maxAge <= System.TimeSpan.Zero)
+        if (maxAge <= TimeSpan.Zero)
         {
-            throw new System.ArgumentOutOfRangeException(nameof(maxAge), maxAge, "The maximum age must be positive.");
+            throw new ArgumentOutOfRangeException(nameof(maxAge), maxAge, "The maximum age must be positive.");
         }
 
         // Evaluate the signature first so the key precondition (signingKey required) is enforced
@@ -110,7 +110,7 @@ public static class MailgunWebhookSignature
         return authentic && fresh;
     }
 
-    private static bool IsFresh(string timestamp, System.TimeSpan maxAge, System.TimeProvider? timeProvider)
+    private static bool IsFresh(string timestamp, TimeSpan maxAge, TimeProvider? timeProvider)
     {
         // The timestamp is attacker-controlled, so the parse is strict: NumberStyles.None rejects a
         // leading sign, whitespace, a decimal point, thousands separators, and hex — only plain ASCII
@@ -122,12 +122,12 @@ public static class MailgunWebhookSignature
             return false;
         }
 
-        System.DateTimeOffset issued;
+        DateTimeOffset issued;
         try
         {
-            issued = System.DateTimeOffset.FromUnixTimeSeconds(unixSeconds);
+            issued = DateTimeOffset.FromUnixTimeSeconds(unixSeconds);
         }
-        catch (System.ArgumentOutOfRangeException)
+        catch (ArgumentOutOfRangeException)
         {
             return false;
         }

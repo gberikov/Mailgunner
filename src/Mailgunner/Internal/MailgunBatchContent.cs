@@ -21,8 +21,8 @@ internal static class MailgunBatchContent
     /// recipient addresses are all rejected. An empty recipient list is valid.
     /// </summary>
     /// <param name="message">The batch to validate.</param>
-    /// <exception cref="System.ArgumentNullException"><paramref name="message"/> is null.</exception>
-    /// <exception cref="System.ArgumentException">
+    /// <exception cref="ArgumentNullException"><paramref name="message"/> is null.</exception>
+    /// <exception cref="ArgumentException">
     /// The batch is missing a sender, has neither a Template nor an inline body (or both), has template
     /// data without a Template, or contains a duplicate recipient address.
     /// </exception>
@@ -32,7 +32,7 @@ internal static class MailgunBatchContent
 
         if (string.IsNullOrWhiteSpace(message.From.Address))
         {
-            throw new System.ArgumentException("A sender (From) is required.", nameof(message));
+            throw new ArgumentException("A sender (From) is required.", nameof(message));
         }
 
         var hasBody = !string.IsNullOrEmpty(message.Text) || !string.IsNullOrEmpty(message.Html);
@@ -40,13 +40,13 @@ internal static class MailgunBatchContent
 
         if (!hasBody && !hasTemplate)
         {
-            throw new System.ArgumentException(
+            throw new ArgumentException(
                 "A batch send requires a Template name or an inline body (Text or Html).", nameof(message));
         }
 
         if (hasBody && hasTemplate)
         {
-            throw new System.ArgumentException(
+            throw new ArgumentException(
                 "A batch cannot have both a Template and an inline body (Text or Html); supply one or the other.",
                 nameof(message));
         }
@@ -57,25 +57,25 @@ internal static class MailgunBatchContent
 
         if (hasTemplateData && !hasTemplate)
         {
-            throw new System.ArgumentException(
+            throw new ArgumentException(
                 "Template variables, a template version, or a generated-text request require a Template name.",
                 nameof(message));
         }
 
-        var seen = new System.Collections.Generic.HashSet<string>(System.StringComparer.Ordinal);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var recipient in message.Recipients)
         {
             // A default(EmailAddress) bypasses the EmailAddress constructor's non-blank guard, so each
             // recipient address is re-checked here rather than failing late during multipart build.
             if (string.IsNullOrWhiteSpace(recipient.Address.Address))
             {
-                throw new System.ArgumentException(
+                throw new ArgumentException(
                     "Each batch recipient must have a non-blank address.", nameof(message));
             }
 
             if (!seen.Add(recipient.Address.Address))
             {
-                throw new System.ArgumentException(
+                throw new ArgumentException(
                     $"Duplicate recipient address: '{recipient.Address.Address}'.", nameof(message));
             }
         }
@@ -90,13 +90,13 @@ internal static class MailgunBatchContent
     /// <param name="items">The ordered item list.</param>
     /// <param name="size">The maximum chunk size.</param>
     /// <returns>The chunks, in order.</returns>
-    public static System.Collections.Generic.IEnumerable<System.Collections.Generic.IReadOnlyList<T>> Chunk<T>(
-        System.Collections.Generic.IList<T> items, int size)
+    public static IEnumerable<IReadOnlyList<T>> Chunk<T>(
+        IList<T> items, int size)
     {
         for (var start = 0; start < items.Count; start += size)
         {
-            var end = System.Math.Min(start + size, items.Count);
-            var slice = new System.Collections.Generic.List<T>(end - start);
+            var end = Math.Min(start + size, items.Count);
+            var slice = new List<T>(end - start);
             for (var i = start; i < end; i++)
             {
                 slice.Add(items[i]);
@@ -116,11 +116,11 @@ internal static class MailgunBatchContent
     /// <param name="message">The batch supplying the shared body/template fields and global variables.</param>
     /// <param name="chunk">The recipients in this chunk, in order.</param>
     /// <returns>The multipart content to POST for this chunk.</returns>
-    public static System.Net.Http.MultipartFormDataContent BuildChunk(
+    public static MultipartFormDataContent BuildChunk(
         MailgunBatchMessage message,
-        System.Collections.Generic.IReadOnlyList<BatchRecipient> chunk)
+        IReadOnlyList<BatchRecipient> chunk)
     {
-        var content = new System.Net.Http.MultipartFormDataContent();
+        var content = new MultipartFormDataContent();
 
         MailgunHttp.AddField(content, "from", message.From.ToString());
 
@@ -172,10 +172,10 @@ internal static class MailgunBatchContent
     }
 
     private static string SerializeRecipientVariables(
-        System.Collections.Generic.IReadOnlyList<BatchRecipient> chunk)
+        IReadOnlyList<BatchRecipient> chunk)
     {
-        var map = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IDictionary<string, object?>>(
-            System.StringComparer.Ordinal);
+        var map = new Dictionary<string, IDictionary<string, object?>>(
+            StringComparer.Ordinal);
 
         foreach (var recipient in chunk)
         {

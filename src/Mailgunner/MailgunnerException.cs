@@ -16,7 +16,7 @@ namespace Mailgunner;
     "Design",
     "CA1032:Implement standard exception constructors",
     Justification = "This exception must always carry an HTTP status code and response body; the parameterless and message-only constructors would permit an invalid instance.")]
-public sealed class MailgunnerException : System.Exception
+public sealed class MailgunnerException : Exception
 {
     private const int MaxServiceMessageLength = 200;
 
@@ -24,7 +24,7 @@ public sealed class MailgunnerException : System.Exception
     /// <param name="statusCode">The HTTP status code of the response.</param>
     /// <param name="responseBody">The raw response body (never null; empty when the response had no body).</param>
     public MailgunnerException(int statusCode, string responseBody)
-        : this(statusCode, responseBody, null, System.Array.Empty<SendResult>())
+        : this(statusCode, responseBody, null, Array.Empty<SendResult>())
     {
     }
 
@@ -37,13 +37,13 @@ public sealed class MailgunnerException : System.Exception
         int statusCode,
         string responseBody,
         int? failedChunkIndex,
-        System.Collections.Generic.IReadOnlyList<SendResult> acceptedResults)
+        IReadOnlyList<SendResult> acceptedResults)
         : base(BuildMessage(statusCode, responseBody))
     {
         StatusCode = statusCode;
         ResponseBody = responseBody;
         FailedChunkIndex = failedChunkIndex;
-        AcceptedResults = acceptedResults ?? System.Array.Empty<SendResult>();
+        AcceptedResults = acceptedResults ?? Array.Empty<SendResult>();
     }
 
     /// <summary>
@@ -67,7 +67,7 @@ public sealed class MailgunnerException : System.Exception
     /// <c>0..FailedChunkIndex-1</c>), so a caller can resume from the failed chunk. Empty outside a batch.
     /// Those messages have been sent and are not rolled back.
     /// </summary>
-    public System.Collections.Generic.IReadOnlyList<SendResult> AcceptedResults { get; }
+    public IReadOnlyList<SendResult> AcceptedResults { get; }
 
     private static string BuildMessage(int statusCode, string responseBody)
     {

@@ -12,16 +12,16 @@ internal static class MailgunMessageContent
     /// </summary>
     /// <param name="message">The message to render.</param>
     /// <returns>The multipart content to POST.</returns>
-    /// <exception cref="System.ArgumentNullException"><paramref name="message"/> is null.</exception>
-    /// <exception cref="System.ArgumentException">
+    /// <exception cref="ArgumentNullException"><paramref name="message"/> is null.</exception>
+    /// <exception cref="ArgumentException">
     /// The message is missing a sender, has no recipient across to/cc/bcc, or has no text or HTML body.
     /// </exception>
-    public static System.Net.Http.MultipartFormDataContent Build(MailgunMessage message)
+    public static MultipartFormDataContent Build(MailgunMessage message)
     {
         Guard.NotNull(message, nameof(message));
         Validate(message);
 
-        var content = new System.Net.Http.MultipartFormDataContent();
+        var content = new MultipartFormDataContent();
         MailgunHttp.AddField(content, "from", message.From.ToString());
 
         foreach (var recipient in message.To)
@@ -88,12 +88,12 @@ internal static class MailgunMessageContent
     {
         if (string.IsNullOrWhiteSpace(message.From.Address))
         {
-            throw new System.ArgumentException("A sender (From) is required.", nameof(message));
+            throw new ArgumentException("A sender (From) is required.", nameof(message));
         }
 
         if (!HasAnyRecipient(message))
         {
-            throw new System.ArgumentException(
+            throw new ArgumentException(
                 "At least one recipient across To, Cc, or Bcc is required.", nameof(message));
         }
 
@@ -102,13 +102,13 @@ internal static class MailgunMessageContent
 
         if (!hasBody && !hasTemplate)
         {
-            throw new System.ArgumentException(
+            throw new ArgumentException(
                 "At least one body part (Text or Html) or a Template name is required.", nameof(message));
         }
 
         if (hasBody && hasTemplate)
         {
-            throw new System.ArgumentException(
+            throw new ArgumentException(
                 "A message cannot have both a Template and an inline body (Text or Html); supply one or the other.",
                 nameof(message));
         }
@@ -119,7 +119,7 @@ internal static class MailgunMessageContent
 
         if (hasTemplateData && !hasTemplate)
         {
-            throw new System.ArgumentException(
+            throw new ArgumentException(
                 "Template variables, a template version, or a generated-text request require a Template name.",
                 nameof(message));
         }
@@ -138,7 +138,7 @@ internal static class MailgunMessageContent
         return false;
     }
 
-    private static System.Collections.Generic.IEnumerable<EmailAddress> EnumerateAll(MailgunMessage message)
+    private static IEnumerable<EmailAddress> EnumerateAll(MailgunMessage message)
     {
         foreach (var recipient in message.To)
         {
@@ -157,7 +157,7 @@ internal static class MailgunMessageContent
     }
 
     private static void AddRecipient(
-        System.Net.Http.MultipartFormDataContent content, string field, EmailAddress recipient)
+        MultipartFormDataContent content, string field, EmailAddress recipient)
     {
         if (string.IsNullOrWhiteSpace(recipient.Address))
         {

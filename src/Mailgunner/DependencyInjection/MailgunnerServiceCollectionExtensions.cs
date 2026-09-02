@@ -24,7 +24,7 @@ public static class MailgunnerServiceCollectionExtensions
     /// <param name="sendingKey">The Mailgun sending key (treated as a secret).</param>
     /// <param name="region">The Mailgun hosting region that selects the API base URL.</param>
     /// <returns>An <see cref="IHttpClientBuilder"/> for further configuration of the underlying typed client.</returns>
-    /// <exception cref="System.ArgumentNullException"><paramref name="services"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="services"/> is <see langword="null"/>.</exception>
     public static IHttpClientBuilder AddMailgunner(
         this IServiceCollection services, string domain, string sendingKey, MailgunRegion region)
     {
@@ -53,9 +53,9 @@ public static class MailgunnerServiceCollectionExtensions
     /// <param name="services">The service collection to add the client to.</param>
     /// <param name="configure">A delegate that populates the <see cref="MailgunnerOptions"/>.</param>
     /// <returns>An <see cref="IHttpClientBuilder"/> for further configuration of the underlying typed client.</returns>
-    /// <exception cref="System.ArgumentNullException"><paramref name="services"/> or <paramref name="configure"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="services"/> or <paramref name="configure"/> is <see langword="null"/>.</exception>
     public static IHttpClientBuilder AddMailgunner(
-        this IServiceCollection services, System.Action<MailgunnerOptions> configure)
+        this IServiceCollection services, Action<MailgunnerOptions> configure)
     {
         Guard.NotNull(services, nameof(services));
         Guard.NotNull(configure, nameof(configure));
@@ -106,8 +106,8 @@ public static class MailgunnerServiceCollectionExtensions
     /// <param name="sendingKey">The Mailgun sending key (treated as a secret).</param>
     /// <param name="region">The Mailgun hosting region that selects the API base URL.</param>
     /// <returns>An <see cref="IHttpClientBuilder"/> for further configuration of this name's typed client.</returns>
-    /// <exception cref="System.ArgumentNullException"><paramref name="services"/> is <see langword="null"/>.</exception>
-    /// <exception cref="System.ArgumentException"><paramref name="name"/> is blank, or already registered.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="services"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="name"/> is blank, or already registered.</exception>
     public static IHttpClientBuilder AddMailgunner(
         this IServiceCollection services, string name, string domain, string sendingKey, MailgunRegion region)
     {
@@ -125,7 +125,7 @@ public static class MailgunnerServiceCollectionExtensions
     /// Registers a <em>named</em> Mailgunner client, configuring its <see cref="MailgunnerOptions"/>
     /// via a delegate. Several distinct names can coexist in one container; resolve one at runtime with
     /// <see cref="IMailgunnerClientFactory.Get(string)"/>. Each name keeps its own typed
-    /// <see cref="System.Net.Http.HttpClient"/>, base URL, authentication, and retry settings, fully
+    /// <see cref="HttpClient"/>, base URL, authentication, and retry settings, fully
     /// isolated from other names and from the unnamed registration. Configuration is validated at
     /// startup.
     /// </summary>
@@ -133,10 +133,10 @@ public static class MailgunnerServiceCollectionExtensions
     /// <param name="name">The unique, non-blank, case-sensitive name to register the client under.</param>
     /// <param name="configure">A delegate that populates the <see cref="MailgunnerOptions"/> for this name.</param>
     /// <returns>An <see cref="IHttpClientBuilder"/> for further configuration of this name's typed client.</returns>
-    /// <exception cref="System.ArgumentNullException"><paramref name="services"/> or <paramref name="configure"/> is <see langword="null"/>.</exception>
-    /// <exception cref="System.ArgumentException"><paramref name="name"/> is blank, or already registered.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="services"/> or <paramref name="configure"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="name"/> is blank, or already registered.</exception>
     public static IHttpClientBuilder AddMailgunner(
-        this IServiceCollection services, string name, System.Action<MailgunnerOptions> configure)
+        this IServiceCollection services, string name, Action<MailgunnerOptions> configure)
     {
         Guard.NotNull(services, nameof(services));
         Guard.NotNull(configure, nameof(configure));
@@ -156,8 +156,8 @@ public static class MailgunnerServiceCollectionExtensions
     /// <param name="name">The unique, non-blank, case-sensitive name to register the client under.</param>
     /// <param name="configuration">The configuration section bound to this name's <see cref="MailgunnerOptions"/>.</param>
     /// <returns>An <see cref="IHttpClientBuilder"/> for further configuration of this name's typed client.</returns>
-    /// <exception cref="System.ArgumentNullException"><paramref name="services"/> or <paramref name="configuration"/> is <see langword="null"/>.</exception>
-    /// <exception cref="System.ArgumentException"><paramref name="name"/> is blank, or already registered.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="services"/> or <paramref name="configuration"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="name"/> is blank, or already registered.</exception>
     public static IHttpClientBuilder AddMailgunner(
         this IServiceCollection services, string name, IConfiguration configuration)
     {
@@ -191,20 +191,20 @@ public static class MailgunnerServiceCollectionExtensions
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw new System.ArgumentException(
+            throw new ArgumentException(
                 "A Mailgunner client name must be provided and cannot be blank.", nameof(name));
         }
 
         var registry = GetOrAddRegistry(services);
         if (!registry.Add(name))
         {
-            throw new System.ArgumentException(
+            throw new ArgumentException(
                 $"A Mailgunner client is already registered under the name '{name}'.", nameof(name));
         }
     }
 
     /// <summary>
-    /// Wires the per-name validation, typed <see cref="System.Net.Http.HttpClient"/> (regional base URL
+    /// Wires the per-name validation, typed <see cref="HttpClient"/> (regional base URL
     /// + HTTP Basic auth from this name's options), per-name resilience handler, and the resolver
     /// factory. The name must already be reserved via <see cref="ReserveName"/>.
     /// </summary>
@@ -231,7 +231,7 @@ public static class MailgunnerServiceCollectionExtensions
         .AddHttpMessageHandler(provider =>
         {
             var options = provider.GetRequiredService<IOptionsMonitor<MailgunnerOptions>>().Get(name);
-            var timeProvider = provider.GetRequiredService<System.TimeProvider>();
+            var timeProvider = provider.GetRequiredService<TimeProvider>();
             var logger = provider.GetRequiredService<ILogger<MailgunResilienceHandler>>();
             var random = provider.GetRequiredService<IRetryRandom>();
             return new MailgunResilienceHandler(timeProvider, options.Retry, logger, random);

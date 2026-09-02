@@ -15,10 +15,10 @@ internal static class MailgunHttp
     /// <param name="request">The request to send (disposed by this method).</param>
     /// <param name="cancellationToken">A token that cancels the request.</param>
     /// <returns>The status code and raw body of a success response.</returns>
-    public static async System.Threading.Tasks.Task<(int Status, string Body)> SendAsync(
-        System.Net.Http.HttpClient httpClient,
-        System.Net.Http.HttpRequestMessage request,
-        System.Threading.CancellationToken cancellationToken)
+    public static async Task<(int Status, string Body)> SendAsync(
+        HttpClient httpClient,
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
     {
         using (request)
         using (var response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false))
@@ -41,6 +41,6 @@ internal static class MailgunHttp
     /// <param name="content">The multipart body being built.</param>
     /// <param name="name">The field name.</param>
     /// <param name="value">The field value.</param>
-    public static void AddField(System.Net.Http.MultipartFormDataContent content, string name, string value) =>
-        content.Add(new System.Net.Http.StringContent(value), name);
+    public static void AddField(MultipartFormDataContent content, string name, string value) =>
+        content.Add(new StringContent(value), name);
 }

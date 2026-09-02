@@ -32,8 +32,8 @@ public interface IMailgunnerClient
     /// A <see cref="SendResult"/> exposing Mailgun's message id and status message when the
     /// service accepts the message.
     /// </returns>
-    /// <exception cref="System.ArgumentNullException"><paramref name="message"/> is <see langword="null"/>.</exception>
-    /// <exception cref="System.ArgumentException">
+    /// <exception cref="ArgumentNullException"><paramref name="message"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">
     /// The message is missing a sender, has no recipient across to/cc/bcc, or has no text or HTML
     /// body. Thrown before any request is issued.
     /// </exception>
@@ -41,9 +41,9 @@ public interface IMailgunnerClient
     /// The service returned a non-success response, or a success response whose body could not be
     /// parsed into a result. Exposes the HTTP status code and the raw response body.
     /// </exception>
-    System.Threading.Tasks.Task<SendResult> SendAsync(
+    Task<SendResult> SendAsync(
         MailgunMessage message,
-        System.Threading.CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Sends one personalized stored-template message to a large recipient list, automatically
@@ -59,8 +59,8 @@ public interface IMailgunnerClient
     /// One <see cref="SendResult"/> per chunk actually sent, in chunk order. An empty
     /// <see cref="MailgunBatchMessage.Recipients"/> list is a no-op that returns an empty list.
     /// </returns>
-    /// <exception cref="System.ArgumentNullException"><paramref name="message"/> is <see langword="null"/>.</exception>
-    /// <exception cref="System.ArgumentException">
+    /// <exception cref="ArgumentNullException"><paramref name="message"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">
     /// The batch is missing a sender, is missing a template, or contains a duplicate recipient address.
     /// Thrown before any request is issued.
     /// </exception>
@@ -70,7 +70,7 @@ public interface IMailgunnerClient
     /// have been sent and are not rolled back. <see cref="MailgunnerException.FailedChunkIndex"/> and
     /// <see cref="MailgunnerException.AcceptedResults"/> show which chunks were already accepted.
     /// </exception>
-    System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<SendResult>> SendBatchAsync(
+    Task<IReadOnlyList<SendResult>> SendBatchAsync(
         MailgunBatchMessage message,
-        System.Threading.CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default);
 }

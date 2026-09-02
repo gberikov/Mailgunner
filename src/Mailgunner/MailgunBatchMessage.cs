@@ -55,16 +55,16 @@ public sealed class MailgunBatchMessage
     /// every chunk; the field is omitted when the map is empty. Per-recipient values belong on
     /// <see cref="BatchRecipient.Variables"/> instead.
     /// </summary>
-    public System.Collections.Generic.IDictionary<string, object?> TemplateVariables { get; }
-        = new System.Collections.Generic.Dictionary<string, object?>();
+    public IDictionary<string, object?> TemplateVariables { get; }
+        = new Dictionary<string, object?>();
 
     /// <summary>
     /// Gets the ordered recipient list. Each entry pairs an address with that recipient's own
     /// variables and appears in exactly one chunk; the supplied order is preserved across chunk
     /// boundaries. An empty list is a valid no-op (zero requests). Duplicate addresses are rejected.
     /// </summary>
-    public System.Collections.Generic.IList<BatchRecipient> Recipients { get; }
-        = new System.Collections.Generic.List<BatchRecipient>();
+    public IList<BatchRecipient> Recipients { get; }
+        = new List<BatchRecipient>();
 
     /// <summary>
     /// Gets or sets the optional send enrichments (tags, test mode, tracking toggles, scheduled delivery
@@ -78,7 +78,7 @@ public sealed class MailgunBatchMessage
     /// Gets or sets the optional reply-to address, emitted as the <c>Reply-To</c> header
     /// (<c>h:Reply-To</c>) on every chunk. Setting it and also supplying a <c>Reply-To</c> entry in
     /// <see cref="MailgunSendOptions.CustomHeaders"/> (matched case-insensitively) throws
-    /// <see cref="System.ArgumentException"/> when the request is built.
+    /// <see cref="ArgumentException"/> when the request is built.
     /// </summary>
     public EmailAddress? ReplyTo { get; set; }
 
@@ -86,13 +86,13 @@ public sealed class MailgunBatchMessage
     /// Gets the file attachments delivered alongside every chunk's message. Each is emitted as a
     /// downloadable <c>attachment</c> file part carrying its file name and content type.
     /// </summary>
-    public System.Collections.Generic.IList<MailgunFile> Attachments { get; }
-        = new System.Collections.Generic.List<MailgunFile>();
+    public IList<MailgunFile> Attachments { get; }
+        = new List<MailgunFile>();
 
     /// <summary>
     /// Gets the inline (embedded) files included on every chunk. Each is emitted as an <c>inline</c>
     /// file part — distinct from <see cref="Attachments"/> — referenceable from the HTML body by content id.
     /// </summary>
-    public System.Collections.Generic.IList<MailgunFile> InlineFiles { get; }
-        = new System.Collections.Generic.List<MailgunFile>();
+    public IList<MailgunFile> InlineFiles { get; }
+        = new List<MailgunFile>();
 }

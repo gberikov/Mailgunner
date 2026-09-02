@@ -17,12 +17,12 @@ public sealed class Unsubscribe
     /// Gets the tags the address unsubscribed from. A single <c>"*"</c> tag means all mail. Defaults to
     /// an empty list; on add the tags are sent only when non-empty.
     /// </summary>
-    public System.Collections.Generic.IReadOnlyList<string> Tags { get; init; }
-        = System.Array.Empty<string>();
+    public IReadOnlyList<string> Tags { get; init; }
+        = Array.Empty<string>();
 
     /// <summary>
     /// Gets the instant the entry was recorded, or <see langword="null"/> when absent or unparseable.
     /// Server-populated on read; ignored on add.
     /// </summary>
-    public System.DateTimeOffset? CreatedAt { get; init; }
+    public DateTimeOffset? CreatedAt { get; init; }
 }

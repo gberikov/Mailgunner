@@ -10,16 +10,16 @@ internal static class MailgunRequestMarkers
     private const string SendKeyName = "Mailgunner.IsSend";
 
 #if NET8_0_OR_GREATER
-    private static readonly System.Net.Http.HttpRequestOptionsKey<bool> SendKey = new(SendKeyName);
+    private static readonly HttpRequestOptionsKey<bool> SendKey = new(SendKeyName);
 
-    public static void MarkAsSend(System.Net.Http.HttpRequestMessage request) => request.Options.Set(SendKey, true);
+    public static void MarkAsSend(HttpRequestMessage request) => request.Options.Set(SendKey, true);
 
-    public static bool IsSend(System.Net.Http.HttpRequestMessage request) =>
+    public static bool IsSend(HttpRequestMessage request) =>
         request.Options.TryGetValue(SendKey, out var isSend) && isSend;
 #else
-    public static void MarkAsSend(System.Net.Http.HttpRequestMessage request) => request.Properties[SendKeyName] = true;
+    public static void MarkAsSend(HttpRequestMessage request) => request.Properties[SendKeyName] = true;
 
-    public static bool IsSend(System.Net.Http.HttpRequestMessage request) =>
+    public static bool IsSend(HttpRequestMessage request) =>
         request.Properties.TryGetValue(SendKeyName, out var value) && value is true;
 #endif
 }

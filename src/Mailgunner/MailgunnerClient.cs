@@ -5,7 +5,7 @@ namespace Mailgunner;
 
 /// <summary>
 /// Default <see cref="IMailgunnerClient"/> implementation. Constructed by the HTTP client
-/// factory as a typed client whose underlying <see cref="System.Net.Http.HttpClient"/> is
+/// factory as a typed client whose underlying <see cref="HttpClient"/> is
 /// pre-configured with the regional base URL and HTTP Basic authentication.
 /// </summary>
 internal sealed class MailgunnerClient : IMailgunnerClient
@@ -18,19 +18,19 @@ internal sealed class MailgunnerClient : IMailgunnerClient
     /// </summary>
     /// <param name="httpClient">The configured typed HTTP client.</param>
     /// <param name="options">The configured Mailgunner options supplying the sending domain, trimmed and percent-encoded for use in request paths.</param>
-    public MailgunnerClient(System.Net.Http.HttpClient httpClient, IOptions<MailgunnerOptions> options)
+    public MailgunnerClient(HttpClient httpClient, IOptions<MailgunnerOptions> options)
     {
         Guard.NotNull(options, nameof(options));
         HttpClient = httpClient;
         _domain = Uri.EscapeDataString(options.Value.Domain.Trim());
-        _suppressions = new System.Lazy<IMailgunSuppressions>(
+        _suppressions = new Lazy<IMailgunSuppressions>(
             () => new MailgunSuppressions(HttpClient, _domain));
-        _webhooks = new System.Lazy<IMailgunWebhooks>(
+        _webhooks = new Lazy<IMailgunWebhooks>(
             () => new MailgunWebhooks(HttpClient, _domain));
     }
 
-    private readonly System.Lazy<IMailgunSuppressions> _suppressions;
-    private readonly System.Lazy<IMailgunWebhooks> _webhooks;
+    private readonly Lazy<IMailgunSuppressions> _suppressions;
+    private readonly Lazy<IMailgunWebhooks> _webhooks;
 
     /// <inheritdoc />
     public IMailgunSuppressions Suppressions => _suppressions.Value;
@@ -43,25 +43,25 @@ internal sealed class MailgunnerClient : IMailgunnerClient
     /// (via <c>InternalsVisibleTo</c>) so routing and authentication can be asserted; not part
     /// of the public surface.
     /// </summary>
-    internal System.Net.Http.HttpClient HttpClient { get; }
+    internal HttpClient HttpClient { get; }
 
     /// <inheritdoc />
-    public async System.Threading.Tasks.Task<SendResult> SendAsync(
+    public async Task<SendResult> SendAsync(
         MailgunMessage message,
-        System.Threading.CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
         using var content = MailgunMessageContent.Build(message);
         return await SendContentAsync(content, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
-    public async System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<SendResult>> SendBatchAsync(
+    public async Task<IReadOnlyList<SendResult>> SendBatchAsync(
         MailgunBatchMessage message,
-        System.Threading.CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
         MailgunBatchContent.Validate(message);
 
-        var results = new System.Collections.Generic.List<SendResult>();
+        var results = new List<SendResult>();
 
         var chunkIndex = 0;
         foreach (var chunk in MailgunBatchContent.Chunk(message.Recipients, MailgunBatchContent.MaxRecipientsPerRequest))
@@ -90,12 +90,12 @@ internal sealed class MailgunnerClient : IMailgunnerClient
     /// or an unparseable success body. Shared by single and batch send so both honor the same error
     /// contract.
     /// </summary>
-    private async System.Threading.Tasks.Task<SendResult> SendContentAsync(
-        System.Net.Http.HttpContent content,
-        System.Threading.CancellationToken cancellationToken)
+    private async Task<SendResult> SendContentAsync(
+        HttpContent content,
+        CancellationToken cancellationToken)
     {
-        var request = new System.Net.Http.HttpRequestMessage(
-            System.Net.Http.HttpMethod.Post, new Uri($"v3/{_domain}/messages", UriKind.Relative))
+        var request = new HttpRequestMessage(
+            HttpMethod.Post, new Uri($"v3/{_domain}/messages", UriKind.Relative))
         {
             Content = content,
         };

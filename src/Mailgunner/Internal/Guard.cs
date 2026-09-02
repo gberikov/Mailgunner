@@ -7,7 +7,7 @@ namespace Mailgunner.Internal;
 internal static class Guard
 {
     /// <summary>
-    /// Throws <see cref="System.ArgumentNullException"/> when <paramref name="argument"/> is null.
+    /// Throws <see cref="ArgumentNullException"/> when <paramref name="argument"/> is null.
     /// </summary>
     /// <typeparam name="T">The reference type of the argument.</typeparam>
     /// <param name="argument">The argument to check.</param>
@@ -16,11 +16,11 @@ internal static class Guard
         where T : class
     {
 #if NET8_0_OR_GREATER
-        System.ArgumentNullException.ThrowIfNull(argument, paramName);
+        ArgumentNullException.ThrowIfNull(argument, paramName);
 #else
         if (argument is null)
         {
-            throw new System.ArgumentNullException(paramName);
+            throw new ArgumentNullException(paramName);
         }
 #endif
     }

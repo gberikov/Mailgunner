@@ -2,7 +2,7 @@ namespace Mailgunner.Internal;
 
 /// <summary>
 /// Default <see cref="IMailgunWebhooks"/> implementation. Issues the v3 domain-webhook requests over the
-/// client's configured <see cref="System.Net.Http.HttpClient"/> (region base URL + Basic auth) and the
+/// client's configured <see cref="HttpClient"/> (region base URL + Basic auth) and the
 /// trimmed sending domain. Create and update send <c>multipart/form-data</c> (<c>id</c>/<c>url</c>) parts;
 /// list, read-one, and delete carry no body. Responses are JSON, deserialized with the source-generated
 /// <see cref="WebhookJsonContext"/> and projected to <see cref="WebhookRegistration"/>. Any non-success
@@ -10,29 +10,29 @@ namespace Mailgunner.Internal;
 /// </summary>
 internal sealed class MailgunWebhooks : IMailgunWebhooks
 {
-    private readonly System.Net.Http.HttpClient _httpClient;
+    private readonly HttpClient _httpClient;
     private readonly string _domain;
 
     /// <summary>Initializes a new instance of the <see cref="MailgunWebhooks"/> class.</summary>
     /// <param name="httpClient">The configured typed HTTP client (region base URL + Basic auth).</param>
     /// <param name="domain">The sending domain (already trimmed).</param>
-    public MailgunWebhooks(System.Net.Http.HttpClient httpClient, string domain)
+    public MailgunWebhooks(HttpClient httpClient, string domain)
     {
         _httpClient = httpClient;
         _domain = domain;
     }
 
     /// <inheritdoc />
-    public async System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<WebhookRegistration>> ListAsync(
-        System.Threading.CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<WebhookRegistration>> ListAsync(
+        CancellationToken cancellationToken = default)
     {
         var (_, body) = await MailgunHttp.SendAsync(
             _httpClient,
-            new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, RootUri()),
+            new HttpRequestMessage(HttpMethod.Get, RootUri()),
             cancellationToken).ConfigureAwait(false);
 
         var dto = System.Text.Json.JsonSerializer.Deserialize(body, WebhookJsonContext.Default.WebhookListDto);
-        var result = new System.Collections.Generic.List<WebhookRegistration>();
+        var result = new List<WebhookRegistration>();
         if (dto?.Webhooks is not null)
         {
             foreach (var pair in dto.Webhooks)
@@ -52,69 +52,69 @@ internal sealed class MailgunWebhooks : IMailgunWebhooks
     }
 
     /// <inheritdoc />
-    public async System.Threading.Tasks.Task<WebhookRegistration> GetAsync(
+    public async Task<WebhookRegistration> GetAsync(
         WebhookEventType eventType,
-        System.Threading.CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
         var uri = ItemUri(eventType);
         var (status, body) = await MailgunHttp.SendAsync(
             _httpClient,
-            new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, uri),
+            new HttpRequestMessage(HttpMethod.Get, uri),
             cancellationToken).ConfigureAwait(false);
 
         return ProjectEnvelope(eventType, status, body);
     }
 
     /// <inheritdoc />
-    public async System.Threading.Tasks.Task<WebhookRegistration> CreateAsync(
+    public async Task<WebhookRegistration> CreateAsync(
         WebhookEventType eventType,
-        System.Collections.Generic.IEnumerable<string> urls,
-        System.Threading.CancellationToken cancellationToken = default)
+        IEnumerable<string> urls,
+        CancellationToken cancellationToken = default)
     {
         var list = ValidateUrls(urls, nameof(urls));
         var token = WebhookEventTypes.ToToken(eventType);
 
-        var content = new System.Net.Http.MultipartFormDataContent
+        var content = new MultipartFormDataContent
         {
-            { new System.Net.Http.StringContent(token), "id" },
+            { new StringContent(token), "id" },
         };
         foreach (var url in list)
         {
-            content.Add(new System.Net.Http.StringContent(url), "url");
+            content.Add(new StringContent(url), "url");
         }
 
         var (status, body) = await MailgunHttp.SendAsync(
             _httpClient,
-            new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, RootUri()) { Content = content },
+            new HttpRequestMessage(HttpMethod.Post, RootUri()) { Content = content },
             cancellationToken).ConfigureAwait(false);
 
         return ProjectEnvelope(eventType, status, body, fallbackUrls: list);
     }
 
     /// <inheritdoc />
-    public async System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<WebhookRegistration>> CreateAsync(
-        System.Collections.Generic.IEnumerable<WebhookEventType> eventTypes,
+    public async Task<IReadOnlyList<WebhookRegistration>> CreateAsync(
+        IEnumerable<WebhookEventType> eventTypes,
         string url,
-        System.Threading.CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
         if (eventTypes is null)
         {
-            throw new System.ArgumentException("At least one event type is required.", nameof(eventTypes));
+            throw new ArgumentException("At least one event type is required.", nameof(eventTypes));
         }
 
         if (string.IsNullOrWhiteSpace(url))
         {
-            throw new System.ArgumentException("A callback URL is required.", nameof(url));
+            throw new ArgumentException("A callback URL is required.", nameof(url));
         }
 
-        var types = new System.Collections.Generic.List<WebhookEventType>(eventTypes);
+        var types = new List<WebhookEventType>(eventTypes);
         if (types.Count == 0)
         {
-            throw new System.ArgumentException("At least one event type is required.", nameof(eventTypes));
+            throw new ArgumentException("At least one event type is required.", nameof(eventTypes));
         }
 
         var single = new[] { url };
-        var results = new System.Collections.Generic.List<WebhookRegistration>(types.Count);
+        var results = new List<WebhookRegistration>(types.Count);
         foreach (var eventType in types)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -125,60 +125,60 @@ internal sealed class MailgunWebhooks : IMailgunWebhooks
     }
 
     /// <inheritdoc />
-    public async System.Threading.Tasks.Task<WebhookRegistration> UpdateAsync(
+    public async Task<WebhookRegistration> UpdateAsync(
         WebhookEventType eventType,
-        System.Collections.Generic.IEnumerable<string> urls,
-        System.Threading.CancellationToken cancellationToken = default)
+        IEnumerable<string> urls,
+        CancellationToken cancellationToken = default)
     {
         var list = ValidateUrls(urls, nameof(urls));
         var uri = ItemUri(eventType);
 
-        var content = new System.Net.Http.MultipartFormDataContent();
+        var content = new MultipartFormDataContent();
         foreach (var url in list)
         {
-            content.Add(new System.Net.Http.StringContent(url), "url");
+            content.Add(new StringContent(url), "url");
         }
 
         var (status, body) = await MailgunHttp.SendAsync(
             _httpClient,
-            new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Put, uri) { Content = content },
+            new HttpRequestMessage(HttpMethod.Put, uri) { Content = content },
             cancellationToken).ConfigureAwait(false);
 
         return ProjectEnvelope(eventType, status, body, fallbackUrls: list);
     }
 
     /// <inheritdoc />
-    public async System.Threading.Tasks.Task DeleteAsync(
+    public async Task DeleteAsync(
         WebhookEventType eventType,
-        System.Threading.CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
         var uri = ItemUri(eventType);
         await MailgunHttp.SendAsync(
             _httpClient,
-            new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Delete, uri),
+            new HttpRequestMessage(HttpMethod.Delete, uri),
             cancellationToken).ConfigureAwait(false);
     }
 
-    private System.Uri RootUri() =>
-        new System.Uri($"v3/domains/{_domain}/webhooks", System.UriKind.Relative);
+    private Uri RootUri() =>
+        new Uri($"v3/domains/{_domain}/webhooks", UriKind.Relative);
 
-    private System.Uri ItemUri(WebhookEventType eventType) =>
-        new System.Uri($"v3/domains/{_domain}/webhooks/{WebhookEventTypes.ToToken(eventType)}", System.UriKind.Relative);
+    private Uri ItemUri(WebhookEventType eventType) =>
+        new Uri($"v3/domains/{_domain}/webhooks/{WebhookEventTypes.ToToken(eventType)}", UriKind.Relative);
 
     /// <summary>
     /// Materializes the supplied URLs, dropping null/blank entries, and requires at least one to remain.
     /// The library does not validate URL format beyond requiring a non-blank URL; service-side validation
     /// is surfaced via <see cref="MailgunnerException"/>.
     /// </summary>
-    private static System.Collections.Generic.List<string> ValidateUrls(
-        System.Collections.Generic.IEnumerable<string> urls, string paramName)
+    private static List<string> ValidateUrls(
+        IEnumerable<string> urls, string paramName)
     {
         if (urls is null)
         {
-            throw new System.ArgumentException("At least one callback URL is required.", paramName);
+            throw new ArgumentException("At least one callback URL is required.", paramName);
         }
 
-        var list = new System.Collections.Generic.List<string>();
+        var list = new List<string>();
         foreach (var url in urls)
         {
             if (!string.IsNullOrWhiteSpace(url))
@@ -189,7 +189,7 @@ internal sealed class MailgunWebhooks : IMailgunWebhooks
 
         if (list.Count == 0)
         {
-            throw new System.ArgumentException("At least one callback URL is required.", paramName);
+            throw new ArgumentException("At least one callback URL is required.", paramName);
         }
 
         return list;
@@ -205,7 +205,7 @@ internal sealed class MailgunWebhooks : IMailgunWebhooks
         WebhookEventType eventType,
         int status,
         string body,
-        System.Collections.Generic.IReadOnlyList<string>? fallbackUrls = null)
+        IReadOnlyList<string>? fallbackUrls = null)
     {
         var envelope = System.Text.Json.JsonSerializer.Deserialize(body, WebhookJsonContext.Default.WebhookEnvelopeDto);
         if (envelope?.Webhook is null)
@@ -219,8 +219,8 @@ internal sealed class MailgunWebhooks : IMailgunWebhooks
         }
 
         var urls = envelope.Webhook.Urls is { Count: > 0 }
-            ? (System.Collections.Generic.IReadOnlyList<string>)envelope.Webhook.Urls
-            : fallbackUrls ?? (System.Collections.Generic.IReadOnlyList<string>)System.Array.Empty<string>();
+            ? (IReadOnlyList<string>)envelope.Webhook.Urls
+            : fallbackUrls ?? (IReadOnlyList<string>)Array.Empty<string>();
 
         return new WebhookRegistration(eventType, urls);
     }

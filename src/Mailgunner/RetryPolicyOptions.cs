@@ -20,10 +20,10 @@ public sealed class RetryPolicyOptions
 
     /// <summary>
     /// Gets or sets the starting backoff used for the first retry; the computed backoff grows
-    /// exponentially with each subsequent retry. Must be <c>&gt; <see cref="System.TimeSpan.Zero"/></c>.
+    /// exponentially with each subsequent retry. Must be <c>&gt; <see cref="TimeSpan.Zero"/></c>.
     /// Defaults to 500&#160;milliseconds.
     /// </summary>
-    public System.TimeSpan BaseDelay { get; set; } = System.TimeSpan.FromMilliseconds(500);
+    public TimeSpan BaseDelay { get; set; } = TimeSpan.FromMilliseconds(500);
 
     /// <summary>
     /// Gets or sets the mandatory upper bound applied to <em>every single</em> wait, including a wait
@@ -31,7 +31,7 @@ public sealed class RetryPolicyOptions
     /// Guarantees a hostile or far-future value cannot stall a send indefinitely. Defaults to
     /// 30&#160;seconds.
     /// </summary>
-    public System.TimeSpan MaxSingleWait { get; set; } = System.TimeSpan.FromSeconds(30);
+    public TimeSpan MaxSingleWait { get; set; } = TimeSpan.FromSeconds(30);
 
     /// <summary>
     /// Gets or sets a value indicating whether a bounded additive random component (a fraction less
@@ -42,17 +42,17 @@ public sealed class RetryPolicyOptions
     public bool UseJitter { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets how a message send is retried. Defaults to <see cref="Mailgunner.SendRetryMode.Safe"/>
+    /// Gets or sets how a message send is retried. Defaults to <see cref="SendRetryMode.Safe"/>
     /// (retry only on <c>429</c>) because a send is not idempotent. See <see cref="Mailgunner.SendRetryMode"/>.
     /// </summary>
     public SendRetryMode SendRetryMode { get; set; } = SendRetryMode.Safe;
 
     /// <summary>
     /// Gets or sets the maximum duration of a <em>single</em> attempt (connect, send, and read of the
-    /// response). An attempt exceeding it is abandoned and surfaces as <see cref="System.TimeoutException"/>,
+    /// response). An attempt exceeding it is abandoned and surfaces as <see cref="TimeoutException"/>,
     /// which the retry policy treats as a transient transport fault. Replaces the typed client's overall
     /// <c>HttpClient.Timeout</c>, which the library sets to infinite so backoff waits are never cut short.
-    /// Must be <c>&gt; <see cref="System.TimeSpan.Zero"/></c>. Defaults to 100&#160;seconds.
+    /// Must be <c>&gt; <see cref="TimeSpan.Zero"/></c>. Defaults to 100&#160;seconds.
     /// </summary>
-    public System.TimeSpan AttemptTimeout { get; set; } = System.TimeSpan.FromSeconds(100);
+    public TimeSpan AttemptTimeout { get; set; } = TimeSpan.FromSeconds(100);
 }

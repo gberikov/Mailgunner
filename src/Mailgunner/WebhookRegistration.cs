@@ -14,7 +14,7 @@ public sealed record WebhookRegistration
     /// <param name="eventType">The event type this registration is keyed by.</param>
     /// <param name="urls">The callback URL(s) for this event type; never null.</param>
     internal WebhookRegistration(
-        WebhookEventType eventType, System.Collections.Generic.IReadOnlyList<string> urls)
+        WebhookEventType eventType, IReadOnlyList<string> urls)
     {
         EventType = eventType;
         Urls = urls;
@@ -29,5 +29,5 @@ public sealed record WebhookRegistration
     /// Gets the callback URL(s) Mailgun invokes for this event type (Mailgun allows up to three). Never
     /// null; never empty for a registration returned by the service.
     /// </summary>
-    public System.Collections.Generic.IReadOnlyList<string> Urls { get; }
+    public IReadOnlyList<string> Urls { get; }
 }

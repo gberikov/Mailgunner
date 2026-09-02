@@ -19,16 +19,16 @@ public sealed class MailgunFile
     /// The optional content (MIME) type. When null or blank, <c>application/octet-stream</c> is used on
     /// the wire; the file name is not inspected to infer a type.
     /// </param>
-    /// <exception cref="System.ArgumentException"><paramref name="fileName"/> is null, empty, or whitespace.</exception>
-    /// <exception cref="System.ArgumentNullException"><paramref name="content"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="fileName"/> is null, empty, or whitespace.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="content"/> is null.</exception>
     public MailgunFile(string fileName, byte[] content, string? contentType = null)
     {
         if (string.IsNullOrWhiteSpace(fileName))
         {
-            throw new System.ArgumentException("A file name is required.", nameof(fileName));
+            throw new ArgumentException("A file name is required.", nameof(fileName));
         }
 
-        Content = content ?? throw new System.ArgumentNullException(nameof(content));
+        Content = content ?? throw new ArgumentNullException(nameof(content));
         FileName = fileName;
         ContentType = contentType;
     }
@@ -42,16 +42,16 @@ public sealed class MailgunFile
     /// <param name="openContent">Opens a fresh stream over the content. Required.</param>
     /// <param name="contentType">The optional MIME type; <c>application/octet-stream</c> when null/blank.</param>
     /// <param name="length">The optional content length, letting the request carry <c>Content-Length</c> instead of chunked encoding.</param>
-    /// <exception cref="System.ArgumentException"><paramref name="fileName"/> is null, empty, or whitespace.</exception>
-    /// <exception cref="System.ArgumentNullException"><paramref name="openContent"/> is null.</exception>
-    public MailgunFile(string fileName, System.Func<System.IO.Stream> openContent, string? contentType = null, long? length = null)
+    /// <exception cref="ArgumentException"><paramref name="fileName"/> is null, empty, or whitespace.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="openContent"/> is null.</exception>
+    public MailgunFile(string fileName, Func<Stream> openContent, string? contentType = null, long? length = null)
     {
         if (string.IsNullOrWhiteSpace(fileName))
         {
-            throw new System.ArgumentException("A file name is required.", nameof(fileName));
+            throw new ArgumentException("A file name is required.", nameof(fileName));
         }
 
-        OpenContent = openContent ?? throw new System.ArgumentNullException(nameof(openContent));
+        OpenContent = openContent ?? throw new ArgumentNullException(nameof(openContent));
         FileName = fileName;
         ContentType = contentType;
         Length = length;
@@ -66,7 +66,7 @@ public sealed class MailgunFile
     public byte[]? Content { get; }
 
     /// <summary>Gets the stream factory, or <see langword="null"/> for a byte-array file.</summary>
-    public System.Func<System.IO.Stream>? OpenContent { get; }
+    public Func<Stream>? OpenContent { get; }
 
     /// <summary>Gets the declared length of a stream-backed file, when known.</summary>
     public long? Length { get; }

@@ -16,7 +16,7 @@ internal sealed class MailgunnerOptionsValidator : IValidateOptions<MailgunnerOp
             return ValidateOptionsResult.Fail("Mailgunner options must be provided.");
         }
 
-        var failures = new System.Collections.Generic.List<string>();
+        var failures = new List<string>();
 
         if (string.IsNullOrWhiteSpace(options.Domain))
         {
@@ -54,7 +54,7 @@ internal sealed class MailgunnerOptionsValidator : IValidateOptions<MailgunnerOp
                 failures.Add($"The maximum retry attempts must not exceed {RetryPolicyOptions.MaxAllowedRetryAttempts} (MailgunnerOptions.Retry.MaxRetryAttempts).");
             }
 
-            if (retry.BaseDelay <= System.TimeSpan.Zero)
+            if (retry.BaseDelay <= TimeSpan.Zero)
             {
                 failures.Add("The retry base delay must be greater than zero (MailgunnerOptions.Retry.BaseDelay).");
             }
@@ -64,7 +64,7 @@ internal sealed class MailgunnerOptionsValidator : IValidateOptions<MailgunnerOp
                 failures.Add("The maximum single wait must be greater than or equal to the base delay (MailgunnerOptions.Retry.MaxSingleWait).");
             }
 
-            if (retry.AttemptTimeout <= System.TimeSpan.Zero)
+            if (retry.AttemptTimeout <= TimeSpan.Zero)
             {
                 failures.Add("The attempt timeout must be greater than zero (MailgunnerOptions.Retry.AttemptTimeout).");
             }

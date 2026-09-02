@@ -5,7 +5,7 @@ namespace Mailgunner.Internal;
 /// types. It is parameterized with the read DTO type, the add-body DTO type, a DTO-to-model projection,
 /// an entry-to-add-body factory, and the source-generated JSON type metadata, so one class serves
 /// bounces, unsubscribes, and complaints. All requests reuse the client's configured
-/// <see cref="System.Net.Http.HttpClient"/> (region base URL + Basic auth); failures surface the single
+/// <see cref="HttpClient"/> (region base URL + Basic auth); failures surface the single
 /// <see cref="MailgunnerException"/>.
 /// </summary>
 /// <typeparam name="TEntry">The public entry model (e.g. <see cref="Bounce"/>).</typeparam>
@@ -13,15 +13,15 @@ namespace Mailgunner.Internal;
 /// <typeparam name="TAddDto">The add-body wire DTO (e.g. <see cref="AddBounceDto"/>).</typeparam>
 internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressionList<TEntry>
 {
-    private readonly System.Net.Http.HttpClient _httpClient;
+    private readonly HttpClient _httpClient;
     private readonly string _domain;
     private readonly string _listSegment;
-    private readonly System.Func<TDto, TEntry> _project;
-    private readonly System.Func<TEntry, TAddDto> _toAddBody;
-    private readonly System.Func<TEntry, string?> _addressOf;
+    private readonly Func<TDto, TEntry> _project;
+    private readonly Func<TEntry, TAddDto> _toAddBody;
+    private readonly Func<TEntry, string?> _addressOf;
     private readonly System.Text.Json.Serialization.Metadata.JsonTypeInfo<PageDto<TDto>> _pageTypeInfo;
     private readonly System.Text.Json.Serialization.Metadata.JsonTypeInfo<TDto> _entryTypeInfo;
-    private readonly System.Text.Json.Serialization.Metadata.JsonTypeInfo<System.Collections.Generic.List<TAddDto>> _addTypeInfo;
+    private readonly System.Text.Json.Serialization.Metadata.JsonTypeInfo<List<TAddDto>> _addTypeInfo;
 
     /// <summary>Initializes a new instance of the <see cref="MailgunSuppressionList{TEntry, TDto, TAddDto}"/> class.</summary>
     /// <param name="httpClient">The configured typed HTTP client.</param>
@@ -34,15 +34,15 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
     /// <param name="entryTypeInfo">JSON metadata for the single read DTO.</param>
     /// <param name="addTypeInfo">JSON metadata for the add-body DTO list (the wire body is a JSON array).</param>
     public MailgunSuppressionList(
-        System.Net.Http.HttpClient httpClient,
+        HttpClient httpClient,
         string domain,
         string listSegment,
-        System.Func<TDto, TEntry> project,
-        System.Func<TEntry, TAddDto> toAddBody,
-        System.Func<TEntry, string?> addressOf,
+        Func<TDto, TEntry> project,
+        Func<TEntry, TAddDto> toAddBody,
+        Func<TEntry, string?> addressOf,
         System.Text.Json.Serialization.Metadata.JsonTypeInfo<PageDto<TDto>> pageTypeInfo,
         System.Text.Json.Serialization.Metadata.JsonTypeInfo<TDto> entryTypeInfo,
-        System.Text.Json.Serialization.Metadata.JsonTypeInfo<System.Collections.Generic.List<TAddDto>> addTypeInfo)
+        System.Text.Json.Serialization.Metadata.JsonTypeInfo<List<TAddDto>> addTypeInfo)
     {
         _httpClient = httpClient;
         _domain = domain;
@@ -56,9 +56,9 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
     }
 
     /// <inheritdoc />
-    public async System.Collections.Generic.IAsyncEnumerable<TEntry> ListAsync(
+    public async IAsyncEnumerable<TEntry> ListAsync(
         int? pageSize = null,
-        [System.Runtime.CompilerServices.EnumeratorCancellation] System.Threading.CancellationToken cancellationToken = default)
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var page = await ListPageAsync(pageSize, cancellationToken).ConfigureAwait(false);
         while (true)
@@ -82,33 +82,33 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
     private const int MaxPageSize = 1000;
 
     /// <inheritdoc />
-    public System.Threading.Tasks.Task<SuppressionPage<TEntry>> ListPageAsync(
+    public Task<SuppressionPage<TEntry>> ListPageAsync(
         int? pageSize = null,
-        System.Threading.CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
         ValidatePageSize(pageSize);
         return FetchPageAsync(ListUri(pageSize), cancellationToken);
     }
 
     /// <inheritdoc />
-    public System.Threading.Tasks.Task<SuppressionPage<TEntry>> ListPageAsync(
+    public Task<SuppressionPage<TEntry>> ListPageAsync(
         string cursor,
-        System.Threading.CancellationToken cancellationToken = default) =>
+        CancellationToken cancellationToken = default) =>
         FetchPageAsync(ValidateCursor(cursor), cancellationToken);
 
     /// <inheritdoc />
-    public async System.Threading.Tasks.Task<TEntry> GetAsync(
+    public async Task<TEntry> GetAsync(
         string address,
-        System.Threading.CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(address))
         {
-            throw new System.ArgumentException("An address is required.", nameof(address));
+            throw new ArgumentException("An address is required.", nameof(address));
         }
 
         var (status, body) = await MailgunHttp.SendAsync(
             _httpClient,
-            new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, ItemUri(address)),
+            new HttpRequestMessage(HttpMethod.Get, ItemUri(address)),
             cancellationToken).ConfigureAwait(false);
 
         var dto = System.Text.Json.JsonSerializer.Deserialize(body, _entryTypeInfo);
@@ -124,31 +124,31 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
     private const int MaxAddPerRequest = 1000;
 
     /// <inheritdoc />
-    public System.Threading.Tasks.Task AddAsync(
+    public Task AddAsync(
         TEntry entry,
-        System.Threading.CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
         if (entry is null)
         {
-            throw new System.ArgumentNullException(nameof(entry));
+            throw new ArgumentNullException(nameof(entry));
         }
 
         return AddRangeAsync(new[] { entry }, cancellationToken);
     }
 
     /// <inheritdoc />
-    public async System.Threading.Tasks.Task AddRangeAsync(
-        System.Collections.Generic.IEnumerable<TEntry> entries,
-        System.Threading.CancellationToken cancellationToken = default)
+    public async Task AddRangeAsync(
+        IEnumerable<TEntry> entries,
+        CancellationToken cancellationToken = default)
     {
         Guard.NotNull(entries, nameof(entries));
 
-        var bodies = new System.Collections.Generic.List<TAddDto>();
+        var bodies = new List<TAddDto>();
         foreach (var entry in entries)
         {
             if (entry is null || string.IsNullOrWhiteSpace(_addressOf(entry)))
             {
-                throw new System.ArgumentException("Every entry must be non-null with a non-blank address.", nameof(entries));
+                throw new ArgumentException("Every entry must be non-null with a non-blank address.", nameof(entries));
             }
 
             bodies.Add(_toAddBody(entry));
@@ -159,10 +159,10 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
             cancellationToken.ThrowIfCancellationRequested();
 
             var json = System.Text.Json.JsonSerializer.Serialize(
-                new System.Collections.Generic.List<TAddDto>(chunk), _addTypeInfo);
-            var request = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, RootUri())
+                new List<TAddDto>(chunk), _addTypeInfo);
+            var request = new HttpRequestMessage(HttpMethod.Post, RootUri())
             {
-                Content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json"),
+                Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json"),
             };
 
             await MailgunHttp.SendAsync(_httpClient, request, cancellationToken).ConfigureAwait(false);
@@ -170,28 +170,28 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
     }
 
     /// <inheritdoc />
-    public async System.Threading.Tasks.Task RemoveAsync(
+    public async Task RemoveAsync(
         string address,
-        System.Threading.CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(address))
         {
-            throw new System.ArgumentException("An address is required.", nameof(address));
+            throw new ArgumentException("An address is required.", nameof(address));
         }
 
         await MailgunHttp.SendAsync(
             _httpClient,
-            new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Delete, ItemUri(address)),
+            new HttpRequestMessage(HttpMethod.Delete, ItemUri(address)),
             cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
-    public async System.Threading.Tasks.Task ClearAsync(
-        System.Threading.CancellationToken cancellationToken = default)
+    public async Task ClearAsync(
+        CancellationToken cancellationToken = default)
     {
         await MailgunHttp.SendAsync(
             _httpClient,
-            new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Delete, RootUri()),
+            new HttpRequestMessage(HttpMethod.Delete, RootUri()),
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -199,55 +199,55 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
     {
         if (pageSize is int n && (n < 1 || n > MaxPageSize))
         {
-            throw new System.ArgumentOutOfRangeException(
+            throw new ArgumentOutOfRangeException(
                 nameof(pageSize), n, $"Page size must be between 1 and {MaxPageSize}.");
         }
     }
 
-    private System.Uri ListUri(int? pageSize) => new System.Uri(
+    private Uri ListUri(int? pageSize) => new Uri(
         pageSize is int n
             ? $"v3/{_domain}/{_listSegment}?limit={n.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
             : $"v3/{_domain}/{_listSegment}",
-        System.UriKind.Relative);
+        UriKind.Relative);
 
-    private System.Uri RootUri() => new System.Uri($"v3/{_domain}/{_listSegment}", System.UriKind.Relative);
+    private Uri RootUri() => new Uri($"v3/{_domain}/{_listSegment}", UriKind.Relative);
 
-    private System.Uri ItemUri(string address) => new System.Uri(
-        $"v3/{_domain}/{_listSegment}/{System.Uri.EscapeDataString(address)}", System.UriKind.Relative);
+    private Uri ItemUri(string address) => new Uri(
+        $"v3/{_domain}/{_listSegment}/{Uri.EscapeDataString(address)}", UriKind.Relative);
 
     /// <summary>
     /// Validates a caller-supplied pagination cursor before it is followed. The cursor is sent
     /// verbatim and the client carries HTTP Basic auth on every request, so a cursor pointing at any
     /// other origin would leak the sending key. Only an absolute <c>https</c> URL on the configured
-    /// Mailgun host (matching <see cref="System.Net.Http.HttpClient.BaseAddress"/>) and addressing this
+    /// Mailgun host (matching <see cref="HttpClient.BaseAddress"/>) and addressing this
     /// very list (<c>/v3/{domain}/{listSegment}</c>) is accepted; anything else throws
-    /// <see cref="System.ArgumentException"/> with no request issued.
+    /// <see cref="ArgumentException"/> with no request issued.
     /// </summary>
-    private System.Uri ValidateCursor(string cursor)
+    private Uri ValidateCursor(string cursor)
     {
         if (string.IsNullOrWhiteSpace(cursor))
         {
-            throw new System.ArgumentException("A pagination cursor is required.", nameof(cursor));
+            throw new ArgumentException("A pagination cursor is required.", nameof(cursor));
         }
 
-        if (!System.Uri.TryCreate(cursor, System.UriKind.Absolute, out var uri))
+        if (!Uri.TryCreate(cursor, UriKind.Absolute, out var uri))
         {
-            throw new System.ArgumentException(
+            throw new ArgumentException(
                 "The pagination cursor must be an absolute URL.", nameof(cursor));
         }
 
         var baseAddress = _httpClient.BaseAddress;
         var sameOrigin = baseAddress is not null
-            && string.Equals(uri.Scheme, System.Uri.UriSchemeHttps, System.StringComparison.Ordinal)
-            && string.Equals(uri.Scheme, baseAddress.Scheme, System.StringComparison.Ordinal)
-            && string.Equals(uri.Host, baseAddress.Host, System.StringComparison.OrdinalIgnoreCase)
+            && string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.Ordinal)
+            && string.Equals(uri.Scheme, baseAddress.Scheme, StringComparison.Ordinal)
+            && string.Equals(uri.Host, baseAddress.Host, StringComparison.OrdinalIgnoreCase)
             && uri.Port == baseAddress.Port;
 
         var expectedPrefix = $"/v3/{_domain}/{_listSegment}";
         if (!sameOrigin
-            || !uri.AbsolutePath.StartsWith(expectedPrefix, System.StringComparison.Ordinal))
+            || !uri.AbsolutePath.StartsWith(expectedPrefix, StringComparison.Ordinal))
         {
-            throw new System.ArgumentException(
+            throw new ArgumentException(
                 "The pagination cursor must reference this domain's suppression list on the configured Mailgun host.",
                 nameof(cursor));
         }
@@ -255,16 +255,16 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
         return uri;
     }
 
-    private async System.Threading.Tasks.Task<SuppressionPage<TEntry>> FetchPageAsync(
-        System.Uri uri, System.Threading.CancellationToken cancellationToken)
+    private async Task<SuppressionPage<TEntry>> FetchPageAsync(
+        Uri uri, CancellationToken cancellationToken)
     {
         var (_, body) = await MailgunHttp.SendAsync(
             _httpClient,
-            new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, uri),
+            new HttpRequestMessage(HttpMethod.Get, uri),
             cancellationToken).ConfigureAwait(false);
 
         var page = System.Text.Json.JsonSerializer.Deserialize(body, _pageTypeInfo);
-        var items = new System.Collections.Generic.List<TEntry>();
+        var items = new List<TEntry>();
         if (page?.Items is not null)
         {
             foreach (var dto in page.Items)

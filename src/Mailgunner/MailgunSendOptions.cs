@@ -19,7 +19,7 @@ public sealed class MailgunSendOptions
     /// repeated <c>o:tag</c> field, in order; the library does not de-duplicate. Blank or
     /// whitespace-only entries are skipped.
     /// </summary>
-    public System.Collections.Generic.IList<string> Tags { get; } = new System.Collections.Generic.List<string>();
+    public IList<string> Tags { get; } = new List<string>();
 
     /// <summary>
     /// Gets or sets a value indicating whether the send runs in test mode (the pipeline is exercised
@@ -46,26 +46,26 @@ public sealed class MailgunSendOptions
     /// <c>Thu, 25 Jun 2026 14:00:00 +0000</c>), never a named zone; when <see langword="null"/>, the
     /// field is omitted.
     /// </summary>
-    public System.DateTimeOffset? DeliveryTime { get; set; }
+    public DateTimeOffset? DeliveryTime { get; set; }
 
     /// <summary>
     /// Gets the arbitrary custom message headers. Each entry is emitted as <c>h:&lt;name&gt;</c> carrying
     /// the supplied value. Names are unique (re-assigning a name replaces its value); the relative
-    /// emission order is immaterial. A blank name is rejected with an <see cref="System.ArgumentException"/>
+    /// emission order is immaterial. A blank name is rejected with an <see cref="ArgumentException"/>
     /// when the request is built.
     /// </summary>
-    public System.Collections.Generic.IDictionary<string, string> CustomHeaders { get; }
-        = new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.Ordinal);
+    public IDictionary<string, string> CustomHeaders { get; }
+        = new Dictionary<string, string>(StringComparer.Ordinal);
 
     /// <summary>
     /// Gets the arbitrary custom variables that travel with the message and surface in later
     /// tracking/webhook data. Each entry is emitted as <c>v:&lt;name&gt;</c> carrying the supplied string
     /// value verbatim (the library does not serialize structured objects; pre-encode any structured
     /// data into the string). Names are unique; emission order is immaterial. A blank name is rejected
-    /// with an <see cref="System.ArgumentException"/> when the request is built.
+    /// with an <see cref="ArgumentException"/> when the request is built.
     /// </summary>
-    public System.Collections.Generic.IDictionary<string, string> CustomVariables { get; }
-        = new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.Ordinal);
+    public IDictionary<string, string> CustomVariables { get; }
+        = new Dictionary<string, string>(StringComparer.Ordinal);
 
     /// <summary>
     /// Gets or sets the opt-in unsubscribe target emitted as the RFC 8058 / RFC 2369
@@ -74,7 +74,7 @@ public sealed class MailgunSendOptions
     /// header is emitted and transactional sends are unaffected. The <c>Url</c> form must be <c>https</c>;
     /// one-click requires an <c>https</c> <c>Url</c>. Setting this <em>and</em> also supplying a
     /// <c>List-Unsubscribe</c> / <c>List-Unsubscribe-Post</c> entry in <see cref="CustomHeaders"/> (matched
-    /// case-insensitively) is a conflict that throws an <see cref="System.ArgumentException"/> when the
+    /// case-insensitively) is a conflict that throws an <see cref="ArgumentException"/> when the
     /// request is built; use exactly one mechanism.
     /// </summary>
     public ListUnsubscribeOptions? ListUnsubscribe { get; set; }
