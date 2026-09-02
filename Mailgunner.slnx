@@ -4,6 +4,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Mailgunner.Tests/Mailgunner.Tests.csproj" />
+    <Project Path="tests/Mailgunner.NetFxTests/Mailgunner.NetFxTests.csproj" />
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/Mailgunner.Sample/Mailgunner.Sample.csproj" />

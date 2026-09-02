@@ -384,6 +384,7 @@ Tests run fully offline — no network access or Mailgun credentials are require
 |------|---------|
 | `src/Mailgunner/` | The publishable library. |
 | `tests/Mailgunner.Tests/` | Offline xUnit test suite. |
+| `tests/Mailgunner.NetFxTests/` | net48 tests exercising the netstandard2.0 build (Windows CI leg). |
 | `Directory.Build.props` | Shared build/quality/package settings. |
 | `Directory.Packages.props` | Central Package Management (pinned versions). |
 | `.editorconfig` | Build-enforced style & analyzer rules. |

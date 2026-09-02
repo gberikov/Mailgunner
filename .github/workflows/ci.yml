@@ -13,7 +13,11 @@ permissions:
 
 jobs:
   build-test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         # Pinned to a commit SHA (v4.2.2) for supply-chain integrity; Dependabot bumps it.
@@ -32,6 +36,8 @@ jobs:
         run: dotnet restore
 
       - name: Audit dependencies for known vulnerabilities
+        if: runner.os == 'Linux'
+        shell: bash
         # Fails the build if any (transitive) package has a known advisory. NU1901-NU1904 are
         # warnings during build (so a new CVE doesn't break local dev); this is the explicit gate.
         run: |
@@ -47,5 +53,9 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
-      - name: Test
-        run: dotnet test --configuration Release --no-build
+      - name: Test (net8.0)
+        run: dotnet test tests/Mailgunner.Tests --configuration Release --no-build
+
+      - name: Test (net48, netstandard2.0 asset)
+        if: runner.os == 'Windows'
+        run: dotnet test tests/Mailgunner.NetFxTests --configuration Release --no-build
