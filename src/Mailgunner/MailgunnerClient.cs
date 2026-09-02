@@ -63,13 +63,22 @@ internal sealed class MailgunnerClient : IMailgunnerClient
 
         var results = new System.Collections.Generic.List<SendResult>();
 
+        var chunkIndex = 0;
         foreach (var chunk in MailgunBatchContent.Chunk(message.Recipients, MailgunBatchContent.MaxRecipientsPerRequest))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             using var content = MailgunBatchContent.BuildChunk(message, chunk);
-            var result = await SendContentAsync(content, cancellationToken).ConfigureAwait(false);
-            results.Add(result);
+            try
+            {
+                results.Add(await SendContentAsync(content, cancellationToken).ConfigureAwait(false));
+            }
+            catch (MailgunnerException ex)
+            {
+                throw new MailgunnerException(ex.StatusCode, ex.ResponseBody, chunkIndex, results.AsReadOnly());
+            }
+
+            chunkIndex++;
         }
 
         return results;

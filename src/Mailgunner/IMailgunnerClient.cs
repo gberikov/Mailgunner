@@ -67,7 +67,8 @@ public interface IMailgunnerClient
     /// <exception cref="MailgunnerException">
     /// A request returned a non-success response, or a success response whose body could not be parsed
     /// into a result. Exposes the HTTP status code and the raw response body; chunks already accepted
-    /// have been sent and are not rolled back.
+    /// have been sent and are not rolled back. <see cref="MailgunnerException.FailedChunkIndex"/> and
+    /// <see cref="MailgunnerException.AcceptedResults"/> show which chunks were already accepted.
     /// </exception>
     System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<SendResult>> SendBatchAsync(
         MailgunBatchMessage message,
