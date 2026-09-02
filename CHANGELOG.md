@@ -33,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MailgunnerException.FailedChunkIndex / AcceptedResults expose which batch chunks were accepted before a failure.
 - Stream-backed MailgunFile(fileName, Func<Stream>, contentType, length); Content is now nullable for such files.
 - The netstandard2.0 build is now executed by a net48 test project on the Windows CI leg.
+- A new `tests/Mailgunner.IntegrationTests` project runs sends, suppressions, and webhooks against a
+  real Mailgun account when the `Mailgun__Domain` / `Mailgun__SendingKey` / `Mailgun__Region` (and, for
+  the send test, `Mailgun__Recipients__0__Address`) environment variables are set; every test returns
+  early when they are absent, so the project builds and runs green with no secrets and is never picked
+  up by CI or the release workflow's scoped `dotnet test` commands. Each test cleans up what it created,
+  including on a failing assertion.
 - The release workflow now builds and runs the test suite before packing, and the package is
   validated for target-framework compatibility on pack (`EnablePackageValidation`); a red test
   suite or an invalid package now blocks publishing.

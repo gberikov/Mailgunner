@@ -378,6 +378,14 @@ dotnet test Mailgunner.slnx -c Release
 
 Tests run fully offline — no network access or Mailgun credentials are required.
 
+Live integration tests (`tests/Mailgunner.IntegrationTests`) run only when the `Mailgun__*`
+variables from the [sample section](#run-the-sample) are set; without them every test returns
+early and the suite stays green. They are not part of `Mailgunner.slnx`'s CI/release runs — CI
+and the release workflow invoke `dotnet test` scoped to the offline projects only — so opting in
+is a manual, local `dotnet test tests/Mailgunner.IntegrationTests` with the environment variables
+exported. Sends use `MailgunSendOptions.TestMode`, so nothing is actually delivered, and every
+test removes whatever suppression entry or webhook it created, even when it fails partway.
+
 ## Project layout
 
 | Path | Purpose |
@@ -385,6 +393,7 @@ Tests run fully offline — no network access or Mailgun credentials are require
 | `src/Mailgunner/` | The publishable library. |
 | `tests/Mailgunner.Tests/` | Offline xUnit test suite. |
 | `tests/Mailgunner.NetFxTests/` | net48 tests exercising the netstandard2.0 build (Windows CI leg). |
+| `tests/Mailgunner.IntegrationTests/` | Opt-in live tests against a real Mailgun account (see above). |
 | `Directory.Build.props` | Shared build/quality/package settings. |
 | `Directory.Packages.props` | Central Package Management (pinned versions). |
 | `.editorconfig` | Build-enforced style & analyzer rules. |
