@@ -60,7 +60,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Send options RequireTls, SkipVerification, Tracking, SendingIp, SendingIpPool, TimeZoneLocalize and MailgunMessage.AmpHtml.
 - Batch sends without a stored template: MailgunBatchMessage.Text / Html with %recipient.var% placeholders.
 - MailgunnerException.FailedChunkIndex / AcceptedResults expose which batch chunks were accepted before a failure.
-- ISuppressionList<T>.AddRangeAsync for bulk adds (chunks of 1000 per request).
+- ISuppressionList<T>.AddRangeAsync for bulk adds (chunks of 1000 per request). **Upgrade note:**
+  this is a required member on a public interface with no default implementation, so a hand-written
+  implementation of `ISuppressionList<T>` (for example a test double) must add it to keep compiling;
+  mocking frameworks are unaffected.
 - Stream-backed MailgunFile(fileName, Func<Stream>, contentType, length); Content is now nullable for such files.
 - RetryPolicyOptions.AttemptTimeout (default 100 s) bounds each individual request attempt under the resilience handler.
 - The netstandard2.0 build is now executed by a net48 test project on the Windows CI leg.
@@ -126,6 +129,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   control characters. All are rejected with `ArgumentException` before any request.
 - EmailAddress now rejects list/delimiter characters (, ; < > " ( ) [ ] \ and whitespace) and malformed
   '@' placement, so a single caller-supplied value can no longer smuggle extra recipients.
+  **Upgrade note:** a display name must now be passed separately — `new EmailAddress("bob@example.com",
+  "Bob")` — rather than embedded in the address string as `"Bob <bob@example.com>"`. The library
+  quotes and escapes the display name for you when it builds the wire value, so the emitted header is
+  unchanged.
 - CI/release supply-chain hardening: GitHub Actions are pinned to commit SHAs (not mutable `@v4`
   tags), a failing `dotnet list package --vulnerable` audit gate was added to CI, and a Dependabot
   configuration keeps the action pins and NuGet packages current.
