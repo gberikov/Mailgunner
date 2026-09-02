@@ -17,19 +17,19 @@ internal sealed class MailgunSuppressions : IMailgunSuppressions
             httpClient, domain, "bounces", ProjectBounce, ToAddBounce, static b => b.Address,
             SuppressionJsonContext.Default.PageDtoBounceDto,
             SuppressionJsonContext.Default.BounceDto,
-            SuppressionJsonContext.Default.AddBounceDto);
+            SuppressionJsonContext.Default.ListAddBounceDto);
 
         Unsubscribes = new MailgunSuppressionList<Unsubscribe, UnsubscribeDto, AddUnsubscribeDto>(
             httpClient, domain, "unsubscribes", ProjectUnsubscribe, ToAddUnsubscribe, static u => u.Address,
             SuppressionJsonContext.Default.PageDtoUnsubscribeDto,
             SuppressionJsonContext.Default.UnsubscribeDto,
-            SuppressionJsonContext.Default.AddUnsubscribeDto);
+            SuppressionJsonContext.Default.ListAddUnsubscribeDto);
 
         Complaints = new MailgunSuppressionList<Complaint, ComplaintDto, AddComplaintDto>(
             httpClient, domain, "complaints", ProjectComplaint, ToAddComplaint, static c => c.Address,
             SuppressionJsonContext.Default.PageDtoComplaintDto,
             SuppressionJsonContext.Default.ComplaintDto,
-            SuppressionJsonContext.Default.AddComplaintDto);
+            SuppressionJsonContext.Default.ListAddComplaintDto);
     }
 
     /// <inheritdoc />

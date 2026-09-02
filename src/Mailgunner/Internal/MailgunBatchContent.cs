@@ -57,23 +57,24 @@ internal static class MailgunBatchContent
     }
 
     /// <summary>
-    /// Partitions <paramref name="recipients"/> into consecutive, order-preserving slices of at most
-    /// <paramref name="size"/>. Chunk <c>k</c> holds recipients <c>[k·size, min((k+1)·size, N))</c>; an
+    /// Partitions <paramref name="items"/> into consecutive, order-preserving slices of at most
+    /// <paramref name="size"/>. Chunk <c>k</c> holds items <c>[k·size, min((k+1)·size, N))</c>; an
     /// empty list yields no chunks and exact multiples produce no trailing empty slice.
     /// </summary>
-    /// <param name="recipients">The ordered recipient list.</param>
+    /// <typeparam name="T">The item type.</typeparam>
+    /// <param name="items">The ordered item list.</param>
     /// <param name="size">The maximum chunk size.</param>
     /// <returns>The chunks, in order.</returns>
-    public static System.Collections.Generic.IEnumerable<System.Collections.Generic.IReadOnlyList<BatchRecipient>> Chunk(
-        System.Collections.Generic.IList<BatchRecipient> recipients, int size)
+    public static System.Collections.Generic.IEnumerable<System.Collections.Generic.IReadOnlyList<T>> Chunk<T>(
+        System.Collections.Generic.IList<T> items, int size)
     {
-        for (var start = 0; start < recipients.Count; start += size)
+        for (var start = 0; start < items.Count; start += size)
         {
-            var end = System.Math.Min(start + size, recipients.Count);
-            var slice = new System.Collections.Generic.List<BatchRecipient>(end - start);
+            var end = System.Math.Min(start + size, items.Count);
+            var slice = new System.Collections.Generic.List<T>(end - start);
             for (var i = start; i < end; i++)
             {
-                slice.Add(recipients[i]);
+                slice.Add(items[i]);
             }
 
             yield return slice;

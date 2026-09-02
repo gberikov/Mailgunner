@@ -21,7 +21,7 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
     private readonly System.Func<TEntry, string?> _addressOf;
     private readonly System.Text.Json.Serialization.Metadata.JsonTypeInfo<PageDto<TDto>> _pageTypeInfo;
     private readonly System.Text.Json.Serialization.Metadata.JsonTypeInfo<TDto> _entryTypeInfo;
-    private readonly System.Text.Json.Serialization.Metadata.JsonTypeInfo<TAddDto> _addTypeInfo;
+    private readonly System.Text.Json.Serialization.Metadata.JsonTypeInfo<System.Collections.Generic.List<TAddDto>> _addTypeInfo;
 
     /// <summary>Initializes a new instance of the <see cref="MailgunSuppressionList{TEntry, TDto, TAddDto}"/> class.</summary>
     /// <param name="httpClient">The configured typed HTTP client.</param>
@@ -32,7 +32,7 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
     /// <param name="addressOf">Extracts an entry's address for pre-request validation on add.</param>
     /// <param name="pageTypeInfo">JSON metadata for the paged read DTO.</param>
     /// <param name="entryTypeInfo">JSON metadata for the single read DTO.</param>
-    /// <param name="addTypeInfo">JSON metadata for the add-body DTO.</param>
+    /// <param name="addTypeInfo">JSON metadata for the add-body DTO list (the wire body is a JSON array).</param>
     public MailgunSuppressionList(
         System.Net.Http.HttpClient httpClient,
         string domain,
@@ -42,7 +42,7 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
         System.Func<TEntry, string?> addressOf,
         System.Text.Json.Serialization.Metadata.JsonTypeInfo<PageDto<TDto>> pageTypeInfo,
         System.Text.Json.Serialization.Metadata.JsonTypeInfo<TDto> entryTypeInfo,
-        System.Text.Json.Serialization.Metadata.JsonTypeInfo<TAddDto> addTypeInfo)
+        System.Text.Json.Serialization.Metadata.JsonTypeInfo<System.Collections.Generic.List<TAddDto>> addTypeInfo)
     {
         _httpClient = httpClient;
         _domain = domain;
@@ -119,8 +119,11 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
         return _project(dto);
     }
 
+    /// <summary>The Mailgun-documented maximum number of add entries accepted per JSON-array request.</summary>
+    private const int MaxAddPerRequest = 1000;
+
     /// <inheritdoc />
-    public async System.Threading.Tasks.Task AddAsync(
+    public System.Threading.Tasks.Task AddAsync(
         TEntry entry,
         System.Threading.CancellationToken cancellationToken = default)
     {
@@ -129,18 +132,40 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
             throw new System.ArgumentNullException(nameof(entry));
         }
 
-        if (string.IsNullOrWhiteSpace(_addressOf(entry)))
+        return AddRangeAsync(new[] { entry }, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async System.Threading.Tasks.Task AddRangeAsync(
+        System.Collections.Generic.IEnumerable<TEntry> entries,
+        System.Threading.CancellationToken cancellationToken = default)
+    {
+        Guard.NotNull(entries, nameof(entries));
+
+        var bodies = new System.Collections.Generic.List<TAddDto>();
+        foreach (var entry in entries)
         {
-            throw new System.ArgumentException("An address is required.", nameof(entry));
+            if (entry is null || string.IsNullOrWhiteSpace(_addressOf(entry)))
+            {
+                throw new System.ArgumentException("Every entry must be non-null with a non-blank address.", nameof(entries));
+            }
+
+            bodies.Add(_toAddBody(entry));
         }
 
-        var json = System.Text.Json.JsonSerializer.Serialize(_toAddBody(entry), _addTypeInfo);
-        var request = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, RootUri())
+        foreach (var chunk in MailgunBatchContent.Chunk(bodies, MaxAddPerRequest))
         {
-            Content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json"),
-        };
+            cancellationToken.ThrowIfCancellationRequested();
 
-        await SendCoreAsync(request, cancellationToken).ConfigureAwait(false);
+            var json = System.Text.Json.JsonSerializer.Serialize(
+                new System.Collections.Generic.List<TAddDto>(chunk), _addTypeInfo);
+            var request = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, RootUri())
+            {
+                Content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json"),
+            };
+
+            await SendCoreAsync(request, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     /// <inheritdoc />

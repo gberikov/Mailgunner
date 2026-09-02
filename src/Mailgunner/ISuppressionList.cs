@@ -74,6 +74,22 @@ public interface ISuppressionList<TEntry>
         System.Threading.CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Adds several entries to the list. Entries are sent as a JSON array in requests of at most 1000
+    /// entries each (Mailgun's per-request limit), issued sequentially in order; the first non-success
+    /// response throws and stops the remaining requests (entries already accepted are not rolled back).
+    /// An empty sequence is a no-op.
+    /// </summary>
+    /// <param name="entries">The entries to add; every address must be non-blank.</param>
+    /// <param name="cancellationToken">A token that cancels the operation; honored between requests.</param>
+    /// <returns>A task that completes when every request has been accepted.</returns>
+    /// <exception cref="System.ArgumentNullException"><paramref name="entries"/> is <see langword="null"/>.</exception>
+    /// <exception cref="System.ArgumentException">An entry is <see langword="null"/> or has a blank address. Thrown before any request.</exception>
+    /// <exception cref="MailgunnerException">A request returned a non-success response.</exception>
+    System.Threading.Tasks.Task AddRangeAsync(
+        System.Collections.Generic.IEnumerable<TEntry> entries,
+        System.Threading.CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Removes a single address from the list.
     /// </summary>
     /// <param name="address">The address to remove.</param>

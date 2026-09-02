@@ -305,8 +305,9 @@ await client.Suppressions.Complaints.ClearAsync(ct);                            
 - An optional **page size** is applied only to the first request; subsequent pages follow the service's
   next pointer verbatim.
 - **`AddAsync`** sends the address plus that list's optional fields (a bounce's `Code`/`Error`, an
-  unsubscribe's `Tags`) as JSON. **`RemoveAsync`** deletes a single address; **`ClearAsync`** deletes
-  every entry on the list.
+  unsubscribe's `Tags`) as JSON. **`AddRangeAsync`** sends many entries as a JSON array (chunked by 1000
+  per request). **`RemoveAsync`** deletes a single address; **`ClearAsync`** deletes every entry on the
+  list.
 - Any non-success response — including a not-found `GetAsync`/`RemoveAsync` — surfaces a
   `MailgunnerException` carrying the HTTP status code and raw response body.
 

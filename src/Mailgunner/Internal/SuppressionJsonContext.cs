@@ -14,9 +14,9 @@ namespace Mailgunner.Internal;
 [System.Text.Json.Serialization.JsonSerializable(typeof(BounceDto))]
 [System.Text.Json.Serialization.JsonSerializable(typeof(UnsubscribeDto))]
 [System.Text.Json.Serialization.JsonSerializable(typeof(ComplaintDto))]
-[System.Text.Json.Serialization.JsonSerializable(typeof(AddBounceDto))]
-[System.Text.Json.Serialization.JsonSerializable(typeof(AddUnsubscribeDto))]
-[System.Text.Json.Serialization.JsonSerializable(typeof(AddComplaintDto))]
+[System.Text.Json.Serialization.JsonSerializable(typeof(System.Collections.Generic.List<AddBounceDto>))]
+[System.Text.Json.Serialization.JsonSerializable(typeof(System.Collections.Generic.List<AddUnsubscribeDto>))]
+[System.Text.Json.Serialization.JsonSerializable(typeof(System.Collections.Generic.List<AddComplaintDto>))]
 internal sealed partial class SuppressionJsonContext : System.Text.Json.Serialization.JsonSerializerContext
 {
 }
