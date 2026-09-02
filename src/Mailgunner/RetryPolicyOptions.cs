@@ -9,10 +9,14 @@ public sealed class RetryPolicyOptions
 {
     /// <summary>
     /// Gets or sets the number of <em>retries</em> attempted after the first send (so the total
-    /// number of attempts is at most <c>MaxRetryAttempts + 1</c>). Must be <c>&gt;= 0</c>; <c>0</c>
-    /// disables retry. Bounds the retry budget. Defaults to <c>3</c>.
+    /// number of attempts is at most <c>MaxRetryAttempts + 1</c>). Must be between <c>0</c> and
+    /// <see cref="MaxAllowedRetryAttempts"/> inclusive; <c>0</c> disables retry. Bounds the retry
+    /// budget. Defaults to <c>3</c>.
     /// </summary>
     public int MaxRetryAttempts { get; set; } = 3;
+
+    /// <summary>The largest accepted <see cref="MaxRetryAttempts"/>; bounds the exponential schedule.</summary>
+    public const int MaxAllowedRetryAttempts = 10;
 
     /// <summary>
     /// Gets or sets the starting backoff used for the first retry; the computed backoff grows

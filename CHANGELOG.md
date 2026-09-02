@@ -95,6 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   out-of-range value throws `ArgumentOutOfRangeException` before any request.
 - Runtime dependency floors lowered to the 8.0.x Extensions train (Microsoft.Extensions.Http 8.0.1,
   System.Text.Json 8.0.5); Polly replaced by the slimmer Polly.Core.
+- MaxRetryAttempts is validated to be at most 10; backoff math saturates at MaxSingleWait instead of overflowing.
 
 ### Removed
 

@@ -92,6 +92,20 @@ public class ConfigurationValidationTests
         Assert.Contains(ex.Failures, f => f.Contains("AttemptTimeout", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void More_than_ten_retry_attempts_fails_at_startup()
+    {
+        var ex = ValidateThrows(o =>
+        {
+            o.Domain = "mg.example.com";
+            o.SendingKey = "key-123";
+            o.Region = MailgunRegion.Us;
+            o.Retry.MaxRetryAttempts = 11;
+        });
+
+        Assert.Contains(ex.Failures, f => f.Contains("MaxRetryAttempts", StringComparison.Ordinal));
+    }
+
     private static OptionsValidationException ValidateThrows(Action<MailgunnerOptions> configure)
     {
         var services = new ServiceCollection();

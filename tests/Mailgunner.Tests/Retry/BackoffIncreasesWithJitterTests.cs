@@ -81,4 +81,29 @@ public class BackoffIncreasesWithJitterTests
         Assert.Equal(TimeSpan.FromSeconds(5), time.Delays[1]); // Retry-After takes precedence
         Assert.Equal(TimeSpan.FromMilliseconds(400), time.Delays[2]); // computed: base * 2^2
     }
+
+    [Fact]
+    public async Task A_large_base_delay_saturates_at_the_cap_instead_of_overflowing()
+    {
+        // BaseDelay == MaxSingleWait so even attempt 0's pre-jitter value already meets the cap:
+        // every one of the 10 waits (2^9x growth by the last) must clamp to the same cap, which
+        // (unprotected) would multiply base-delay ticks past long.MaxValue and go negative. The cap
+        // is kept under .NET's own ~49.7-day Task.Delay ceiling so the wait can actually be scheduled
+        // through the real pipeline (a day-scale cap is still ~86,400x anything the other retry
+        // tests use, which stay in the millisecond/second range).
+        var stub = new StubHttpMessageHandler(HttpStatusCode.ServiceUnavailable, "{\"message\":\"busy\"}");
+        var time = new RecordingTimeProvider();
+        var client = RetryTestHarness.BuildClient(stub, time, configure: o =>
+        {
+            o.Retry.MaxRetryAttempts = 10;
+            o.Retry.BaseDelay = TimeSpan.FromDays(30);
+            o.Retry.MaxSingleWait = TimeSpan.FromDays(30);
+            o.Retry.UseJitter = true;
+        });
+
+        await Assert.ThrowsAsync<MailgunnerException>(() => client.Suppressions.Bounces.ListPageAsync());
+
+        Assert.Equal(10, time.Delays.Count);
+        Assert.All(time.Delays, d => Assert.Equal(TimeSpan.FromDays(30), d));
+    }
 }

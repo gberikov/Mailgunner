@@ -221,17 +221,16 @@ internal sealed class MailgunResilienceHandler : DelegatingHandler
             }
         }
 
-        // Fallback: exponential base growth plus bounded additive jitter, then cap.
-        var baseDelay = Multiply(_options.BaseDelay, Math.Pow(2, attemptNumber));
-        var jitter = _options.UseJitter
-            ? Multiply(baseDelay, _random.NextDouble() * JitterFraction)
-            : TimeSpan.Zero;
+        // Fallback: exponential base growth plus bounded additive jitter, then cap. Computed in
+        // double and saturated at the cap before converting back to TimeSpan, so a large base
+        // delay or attempt count cannot overflow the long tick count Multiply used to compute.
+        var capTicks = (double)_options.MaxSingleWait.Ticks;
+        var baseTicks = Math.Min(_options.BaseDelay.Ticks * Math.Pow(2, attemptNumber), capTicks);
+        var jitterTicks = _options.UseJitter ? baseTicks * _random.NextDouble() * JitterFraction : 0d;
+        var totalTicks = Math.Min(baseTicks + jitterTicks, capTicks);
 
-        return RetryClassification.Cap(baseDelay + jitter, _options.MaxSingleWait);
+        return TimeSpan.FromTicks((long)totalTicks);
     }
-
-    private static TimeSpan Multiply(TimeSpan value, double factor) =>
-        TimeSpan.FromTicks((long)(value.Ticks * factor));
 
     /// <summary>Per-execution mutable retry count carried through the resilience context.</summary>
     private sealed class AttemptCounter

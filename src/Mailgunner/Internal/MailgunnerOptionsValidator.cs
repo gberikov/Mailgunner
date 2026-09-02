@@ -49,6 +49,11 @@ internal sealed class MailgunnerOptionsValidator : IValidateOptions<MailgunnerOp
                 failures.Add("The maximum retry attempts must be zero or greater (MailgunnerOptions.Retry.MaxRetryAttempts).");
             }
 
+            if (retry.MaxRetryAttempts > RetryPolicyOptions.MaxAllowedRetryAttempts)
+            {
+                failures.Add($"The maximum retry attempts must not exceed {RetryPolicyOptions.MaxAllowedRetryAttempts} (MailgunnerOptions.Retry.MaxRetryAttempts).");
+            }
+
             if (retry.BaseDelay <= System.TimeSpan.Zero)
             {
                 failures.Add("The retry base delay must be greater than zero (MailgunnerOptions.Retry.BaseDelay).");
