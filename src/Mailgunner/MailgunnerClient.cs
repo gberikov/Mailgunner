@@ -10,18 +10,19 @@ namespace Mailgunner;
 /// </summary>
 internal sealed class MailgunnerClient : IMailgunnerClient
 {
+    /// <summary>The sending domain, trimmed and percent-encoded for use in request paths.</summary>
     private readonly string _domain;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MailgunnerClient"/> class.
     /// </summary>
     /// <param name="httpClient">The configured typed HTTP client.</param>
-    /// <param name="options">The configured Mailgunner options supplying the sending domain.</param>
+    /// <param name="options">The configured Mailgunner options supplying the sending domain, trimmed and percent-encoded for use in request paths.</param>
     public MailgunnerClient(System.Net.Http.HttpClient httpClient, IOptions<MailgunnerOptions> options)
     {
         Guard.NotNull(options, nameof(options));
         HttpClient = httpClient;
-        _domain = options.Value.Domain.Trim();
+        _domain = Uri.EscapeDataString(options.Value.Domain.Trim());
         _suppressions = new System.Lazy<IMailgunSuppressions>(
             () => new MailgunSuppressions(HttpClient, _domain));
         _webhooks = new System.Lazy<IMailgunWebhooks>(

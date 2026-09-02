@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- The sending domain is now percent-encoded in request paths, preventing a domain value containing `/`, `?`, `#` or space from escaping its path segment and rewriting the request target.
+
 ### Fixed
 
 - Domain webhook management now targets Mailgun's actual path `/v3/domains/{domain}/webhooks`; the previous `/v3/{domain}/webhooks` returned HTTP 404 for every operation.
