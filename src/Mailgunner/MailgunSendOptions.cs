@@ -78,4 +78,25 @@ public sealed class MailgunSendOptions
     /// request is built; use exactly one mechanism.
     /// </summary>
     public ListUnsubscribeOptions? ListUnsubscribe { get; set; }
+
+    /// <summary>Gets or sets whether TLS is required for delivery (<c>o:require-tls</c>); null omits the field.</summary>
+    public bool? RequireTls { get; set; }
+
+    /// <summary>Gets or sets whether certificate/hostname verification is skipped (<c>o:skip-verification</c>); null omits the field.</summary>
+    public bool? SkipVerification { get; set; }
+
+    /// <summary>Gets or sets the master tracking toggle (<c>o:tracking</c>) covering opens and clicks; null omits the field.</summary>
+    public bool? Tracking { get; set; }
+
+    /// <summary>Gets or sets the dedicated sending IP to use (<c>o:sending-ip</c>); null/blank omits the field.</summary>
+    public string? SendingIp { get; set; }
+
+    /// <summary>Gets or sets the IP pool to send from (<c>o:sending-ip-pool</c>); null/blank omits the field.</summary>
+    public string? SendingIpPool { get; set; }
+
+    /// <summary>
+    /// Gets or sets the recipient-local delivery time (<c>o:time-zone-localize</c>, e.g. <c>"09:00"</c> or
+    /// <c>"9:00AM"</c>) applied on top of <see cref="DeliveryTime"/>; null/blank omits the field.
+    /// </summary>
+    public string? TimeZoneLocalize { get; set; }
 }

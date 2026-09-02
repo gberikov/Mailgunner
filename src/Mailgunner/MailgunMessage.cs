@@ -100,4 +100,7 @@ public sealed class MailgunMessage
     /// </summary>
     public System.Collections.Generic.IList<MailgunFile> InlineFiles { get; }
         = new System.Collections.Generic.List<MailgunFile>();
+
+    /// <summary>Gets or sets the optional AMP-HTML body part, emitted as <c>amp-html</c>. Requires <see cref="Html"/> or <see cref="Text"/> as well.</summary>
+    public string? AmpHtml { get; set; }
 }

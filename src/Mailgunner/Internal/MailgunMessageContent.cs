@@ -54,6 +54,11 @@ internal static class MailgunMessageContent
             MailgunHttp.AddField(content, "html", message.Html!);
         }
 
+        if (!string.IsNullOrEmpty(message.AmpHtml))
+        {
+            MailgunHttp.AddField(content, "amp-html", message.AmpHtml!);
+        }
+
         if (!string.IsNullOrWhiteSpace(message.Template))
         {
             MailgunHttp.AddField(content, "template", message.Template!);

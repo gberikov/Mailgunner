@@ -65,6 +65,14 @@ internal static class MailgunOptionsContent
             MailgunHttp.AddField(content, "o:tracking-clicks", ClickTrackingValue(trackClicks));
         }
 
+        // 4b. Additional o: toggles and strings — omitted when null/blank.
+        AddYesNo(content, "o:require-tls", options.RequireTls);
+        AddYesNo(content, "o:skip-verification", options.SkipVerification);
+        AddYesNo(content, "o:tracking", options.Tracking);
+        AddIfPresent(content, "o:sending-ip", options.SendingIp);
+        AddIfPresent(content, "o:sending-ip-pool", options.SendingIpPool);
+        AddIfPresent(content, "o:time-zone-localize", options.TimeZoneLocalize);
+
         // 5. Scheduled delivery time — RFC 2822 with a numeric offset.
         if (options.DeliveryTime is System.DateTimeOffset deliveryTime)
         {
@@ -221,6 +229,24 @@ internal static class MailgunOptionsContent
         if (unsubscribe.OneClick)
         {
             MailgunHttp.AddField(content, "h:List-Unsubscribe-Post", "List-Unsubscribe=One-Click");
+        }
+    }
+
+    /// <summary>Emits <paramref name="name"/> as <c>yes</c>/<c>no</c> when <paramref name="value"/> is set; omitted when null.</summary>
+    private static void AddYesNo(System.Net.Http.MultipartFormDataContent content, string name, bool? value)
+    {
+        if (value is bool flag)
+        {
+            MailgunHttp.AddField(content, name, flag ? "yes" : "no");
+        }
+    }
+
+    /// <summary>Emits <paramref name="name"/> verbatim when <paramref name="value"/> is non-blank; omitted otherwise.</summary>
+    private static void AddIfPresent(System.Net.Http.MultipartFormDataContent content, string name, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            MailgunHttp.AddField(content, name, value!);
         }
     }
 
