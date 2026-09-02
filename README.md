@@ -3,10 +3,10 @@
 Lightweight, modern, unofficial .NET client for the [Mailgun](https://www.mailgun.com/)
 (Sinch) REST API, focused on bulk personalized email delivery.
 
-> **Status:** `0.1.0` — first release. DI registration, single & templated sends, personalized
-> batch sends, send options, suppression lists, webhook signature verification, and automatic
-> retry/backoff are all in place — with the copy-paste [Quickstart](#quickstart) and runnable
-> [sample](#run-the-sample) below.
+> **Status:** `0.2.0` — second release. Adds named clients, one-click List-Unsubscribe, domain webhook
+> management, inline-body batches, stream attachments, a safe-by-default send retry mode, and fixes the
+> webhook path, suppression timestamps and JSON add bodies found in review. See the
+> [changelog](https://github.com/gberikov/Mailgunner/blob/master/CHANGELOG.md).
 
 ## Highlights
 
@@ -23,8 +23,7 @@ Lightweight, modern, unofficial .NET client for the [Mailgun](https://www.mailgu
 dotnet add package Mailgunner
 ```
 
-> Published to NuGet on tagging `v0.1.0`; until then, build from source (see
-> [Building from source](#building-from-source)).
+> Pre-releases are published on `v*` tags; see [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Quickstart
 
