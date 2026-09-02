@@ -11,7 +11,7 @@ Lightweight, modern, unofficial .NET client for the [Mailgun](https://www.mailgu
 ## Highlights
 
 - **Modern & slim** — multi-targets `net8.0` and `netstandard2.0`; minimal dependency
-  footprint (`System.Text.Json`, `Polly`, `Microsoft.Extensions.Http`).
+  footprint (`System.Text.Json`, `Polly.Core`, `Microsoft.Extensions.Http`).
 - **Resilient HTTP** — built around typed `HttpClient` via `IHttpClientFactory` with Polly
   transient-fault handling (automatic retry with backoff, on by default).
 - **Documented & strict** — nullable reference types, XML docs, and warnings-as-errors.

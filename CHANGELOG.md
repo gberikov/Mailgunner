@@ -85,6 +85,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of failing later during multipart construction.
 - Suppression-list page size is now bounded to the Mailgun-documented range `1..1000`; an
   out-of-range value throws `ArgumentOutOfRangeException` before any request.
+- Runtime dependency floors lowered to the 8.0.x Extensions train (Microsoft.Extensions.Http 8.0.1,
+  System.Text.Json 8.0.5); Polly replaced by the slimmer Polly.Core.
 
 ### Removed
 
