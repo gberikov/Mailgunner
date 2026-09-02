@@ -51,6 +51,8 @@ tag to dry-run the pack without any risk of publishing.
 3. The **Release** workflow runs: it packs `Mailgunner.<version>.nupkg` + `.snupkg` and,
    **if `NUGET_API_KEY` is present**, pushes both to nuget.org (`--skip-duplicate` makes a
    re-run safe). If the secret is absent, the job packs and then **stops before upload**.
+   The workflow builds and runs the offline test suite first; a red test suite blocks the
+   pack and push.
 
 ## Versioning notes
 
@@ -59,6 +61,8 @@ tag to dry-run the pack without any risk of publishing.
 - The first **stable** release is a later decision: tag `v0.1.0` (no pre-release suffix).
 - Untagged local builds produce a `0.1.0-*` height version via `MinVerMinimumMajorMinor`;
   this is expected and never published.
+- After the first stable tag, set `PackageValidationBaselineVersion` in
+  `Mailgunner.csproj` to that version so later packs fail on breaking API changes.
 
 ## Safety guarantees
 

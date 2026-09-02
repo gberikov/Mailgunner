@@ -31,8 +31,19 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test
+        # Scoped to the offline net8.0 test project, same as CI's Linux leg: the net48 project
+        # (Mailgunner.NetFxTests) only runs on Windows and this job runs on ubuntu-latest.
+        run: dotnet test tests/Mailgunner.Tests --configuration Release --no-build
+
       - name: Pack
-        run: dotnet pack src/Mailgunner/Mailgunner.csproj --configuration Release --output artifacts
+        run: dotnet pack src/Mailgunner/Mailgunner.csproj --configuration Release --no-build --output artifacts
 
       - name: Push to NuGet (gated on NUGET_API_KEY)
         # GitHub Actions cannot reference secrets in a job-level `if`; bind the secret to a
