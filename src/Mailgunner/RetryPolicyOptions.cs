@@ -36,4 +36,10 @@ public sealed class RetryPolicyOptions
     /// one. Defaults to <see langword="true"/>.
     /// </summary>
     public bool UseJitter { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets how a message send is retried. Defaults to <see cref="Mailgunner.SendRetryMode.Safe"/>
+    /// (retry only on <c>429</c>) because a send is not idempotent. See <see cref="Mailgunner.SendRetryMode"/>.
+    /// </summary>
+    public SendRetryMode SendRetryMode { get; set; } = SendRetryMode.Safe;
 }

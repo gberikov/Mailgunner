@@ -90,6 +90,7 @@ internal sealed class MailgunnerClient : IMailgunnerClient
         {
             Content = content,
         };
+        MailgunRequestMarkers.MarkAsSend(request);
 
         var (status, body) = await MailgunHttp.SendAsync(HttpClient, request, cancellationToken).ConfigureAwait(false);
 

@@ -28,6 +28,8 @@ internal sealed class MailgunResilienceHandler : DelegatingHandler
     private static readonly ResiliencePropertyKey<AttemptCounter> AttemptCounterKey =
         new("Mailgunner.RetryAttemptCounter");
 
+    private static readonly ResiliencePropertyKey<bool> IsSendKey = new("Mailgunner.IsSend");
+
     private static readonly Action<ILogger, int, string, Exception?> LogRetriesExhausted =
         LoggerMessage.Define<int, string>(
             LogLevel.Warning,
@@ -101,6 +103,7 @@ internal sealed class MailgunResilienceHandler : DelegatingHandler
         var context = ResilienceContextPool.Shared.Get(cancellationToken);
         var counter = new AttemptCounter();
         context.Properties.Set(AttemptCounterKey, counter);
+        context.Properties.Set(IsSendKey, MailgunRequestMarkers.IsSend(request));
 
         try
         {
@@ -110,7 +113,9 @@ internal sealed class MailgunResilienceHandler : DelegatingHandler
                     context)
                 .ConfigureAwait(false);
 
-            if (_options.MaxRetryAttempts > 0 && RetryClassification.IsRetryableStatus((int)response.StatusCode))
+            if (_options.MaxRetryAttempts > 0
+                && counter.Retries >= _options.MaxRetryAttempts
+                && RetryClassification.IsRetryableStatus((int)response.StatusCode))
             {
                 LogRetriesExhausted(
                     _logger,
@@ -145,8 +150,7 @@ internal sealed class MailgunResilienceHandler : DelegatingHandler
 
         var retry = new RetryStrategyOptions<HttpResponseMessage>
         {
-            ShouldHandle = args =>
-                new ValueTask<bool>(ShouldRetry(args.Outcome, args.Context.CancellationToken)),
+            ShouldHandle = args => new ValueTask<bool>(ShouldRetry(args.Outcome, args.Context)),
             MaxRetryAttempts = _options.MaxRetryAttempts,
             DelayGenerator = args =>
                 new ValueTask<TimeSpan?>(ComputeDelay(args.Outcome, args.AttemptNumber)),
@@ -166,11 +170,18 @@ internal sealed class MailgunResilienceHandler : DelegatingHandler
             .Build();
     }
 
-    private static bool ShouldRetry(Outcome<HttpResponseMessage> outcome, CancellationToken cancellationToken)
+    private bool ShouldRetry(Outcome<HttpResponseMessage> outcome, ResilienceContext context)
     {
+        var isSend = context.Properties.TryGetValue(IsSendKey, out var send) && send;
+        if (isSend && _options.SendRetryMode == SendRetryMode.Safe)
+        {
+            // A send is not idempotent: only a rate-limit rejection is provably unaccepted.
+            return outcome.Result is { } rejected && (int)rejected.StatusCode == 429;
+        }
+
         if (outcome.Exception is { } exception)
         {
-            return RetryClassification.IsTransientTransport(exception, cancellationToken);
+            return RetryClassification.IsTransientTransport(exception, context.CancellationToken);
         }
 
         return outcome.Result is { } response

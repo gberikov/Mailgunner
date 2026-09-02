@@ -45,6 +45,7 @@ internal static class RetryTestHarness
             options.Domain = "mg.example.com";
             options.SendingKey = SendingKey;
             options.Region = MailgunRegion.Us;
+            options.Retry.SendRetryMode = SendRetryMode.Full; // existing retry tests exercise the full pipeline via sends
             configure?.Invoke(options);
         });
         builder.ConfigurePrimaryHttpMessageHandler(() => stub);

@@ -86,6 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Message sends are retried only on HTTP 429 by default (new RetryPolicyOptions.SendRetryMode, default Safe); SendRetryMode.Full restores the previous behaviour. Non-send requests are unaffected.
 - Batch send validates every recipient address up front: a recipient created from a
   `default(EmailAddress)` (blank address) now throws `ArgumentException` before any request instead
   of failing later during multipart construction.

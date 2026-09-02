@@ -234,6 +234,9 @@ services.AddMailgunner("mg.example.com", sendingKey, MailgunRegion.Us);
 // Retry-After is honored; a non-429 4xx still surfaces immediately.
 ```
 
+- **Sends are special** — `POST /messages` is not idempotent, so by default a send is retried **only on 429**
+  (`Retry.SendRetryMode = SendRetryMode.Safe`). Set `SendRetryMode.Full` to retry sends on 408/5xx and transport
+  faults too, accepting the risk of duplicate delivery. Suppression and webhook requests always use the full policy.
 - **Retried** — HTTP `429`, `408`, and any `5xx`, plus transport-level faults with no response
   (timeout, connection reset/refused, DNS failure).
 - **Never retried** — a non-`429` `4xx` (for example `400`/`401`/`403`/`404`) surfaces immediately as
@@ -264,6 +267,7 @@ services.AddMailgunner(o =>
     o.Retry.BaseDelay = TimeSpan.FromMilliseconds(500); // starting backoff (> 0)
     o.Retry.MaxSingleWait = TimeSpan.FromSeconds(30);   // mandatory cap on any single wait (>= BaseDelay)
     o.Retry.UseJitter = true;                           // bounded additive jitter
+    o.Retry.SendRetryMode = SendRetryMode.Safe;         // Safe (429 only) or Full
 });
 ```
 
