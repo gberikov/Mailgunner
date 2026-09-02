@@ -69,6 +69,72 @@ public static class MailgunWebhookSignature
         return FixedTimeEquals(expected, provided);
     }
 
+    /// <summary>
+    /// Verifies the signature exactly as <see cref="Verify(string, string, string, string)"/> and additionally
+    /// requires the webhook's <paramref name="timestamp"/> (Unix seconds) to be within
+    /// <paramref name="maxAge"/> of the current time in either direction, which defeats replay of an old
+    /// capture. Both checks always run; the result is authentic only when both pass.
+    /// </summary>
+    /// <param name="signingKey">The Mailgun HTTP webhook signing key. Required.</param>
+    /// <param name="timestamp">The webhook's timestamp field, Unix seconds (untrusted input).</param>
+    /// <param name="token">The webhook's token field (untrusted input).</param>
+    /// <param name="signature">The webhook's hex signature field (untrusted input).</param>
+    /// <param name="maxAge">The largest accepted distance between <paramref name="timestamp"/> and now. Must be positive.</param>
+    /// <param name="timeProvider">The clock to use; <see cref="System.TimeProvider.System"/> when null.</param>
+    /// <returns><see langword="true"/> when the signature is valid and the timestamp is fresh; otherwise <see langword="false"/>.</returns>
+    /// <exception cref="System.ArgumentException"><paramref name="signingKey"/> is null, empty, or whitespace.</exception>
+    /// <exception cref="System.ArgumentOutOfRangeException"><paramref name="maxAge"/> is not positive.</exception>
+    public static bool Verify(
+        string signingKey,
+        string timestamp,
+        string token,
+        string signature,
+        System.TimeSpan maxAge,
+        System.TimeProvider? timeProvider = null)
+    {
+        if (maxAge <= System.TimeSpan.Zero)
+        {
+            throw new System.ArgumentOutOfRangeException(nameof(maxAge), maxAge, "The maximum age must be positive.");
+        }
+
+        // Evaluate the signature first so the key precondition (signingKey required) is enforced
+        // identically to the base overload, regardless of whether the timestamp also turns out to be
+        // fresh. Both the authenticity and freshness checks always run — neither short-circuits the
+        // other — so timing cannot reveal which one failed.
+        var authentic = Verify(signingKey, timestamp, token, signature);
+        var fresh = IsFresh(timestamp, maxAge, timeProvider);
+
+        return authentic && fresh;
+    }
+
+    private static bool IsFresh(string timestamp, System.TimeSpan maxAge, System.TimeProvider? timeProvider)
+    {
+        // The timestamp is attacker-controlled, so the parse is strict: NumberStyles.None rejects a
+        // leading sign, whitespace, a decimal point, thousands separators, and hex — only plain ASCII
+        // digits pass.
+        if (timestamp is null
+            || !long.TryParse(timestamp, System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out var unixSeconds))
+        {
+            return false;
+        }
+
+        System.DateTimeOffset issued;
+        try
+        {
+            issued = System.DateTimeOffset.FromUnixTimeSeconds(unixSeconds);
+        }
+        catch (System.ArgumentOutOfRangeException)
+        {
+            return false;
+        }
+
+        var now = (timeProvider ?? System.TimeProvider.System).GetUtcNow();
+        var distance = now > issued ? now - issued : issued - now;
+
+        return distance <= maxAge;
+    }
+
     private static string ToLowerHex(byte[] bytes)
     {
         var chars = new char[bytes.Length * 2];

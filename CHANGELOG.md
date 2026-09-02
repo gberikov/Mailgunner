@@ -76,6 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   default). This is purely additive (SemVer MINOR). Adds the first-party
   `Microsoft.Extensions.Options.ConfigurationExtensions` dependency, used only by the configuration-
   section overload.
+- MailgunWebhookSignature.Verify overload with maxAge (and optional TimeProvider) rejecting stale/future timestamps.
 
 ### Security
 

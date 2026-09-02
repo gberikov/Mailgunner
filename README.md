@@ -352,9 +352,18 @@ if (!authentic)
   `ArgumentException` (a configuration error). Every malformed or missing webhook-supplied field — a
   `null` timestamp/token, or a `null`, empty, wrong-length, or non-hexadecimal signature — returns
   `false` rather than throwing.
-- Verification answers only "was this signed with the signing key?". **Replay protection** and
-  **timestamp-freshness** checks (rejecting old or already-seen webhooks) are your responsibility and
-  are intentionally out of scope.
+- Verification answers only "was this signed with the signing key?". Pass `maxAge` (e.g.
+  `TimeSpan.FromMinutes(5)`) to the second overload to also reject stale or future timestamps;
+  token-reuse tracking remains yours:
+
+```csharp
+bool authentic = MailgunWebhookSignature.Verify(
+    signingKey: configuration["Mailgun:WebhookSigningKey"]!,
+    timestamp:  timestamp,
+    token:      token,
+    signature:  signature,
+    maxAge:     TimeSpan.FromMinutes(5));
+```
 
 ## Building from source
 
