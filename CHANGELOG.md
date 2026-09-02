@@ -33,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MailgunnerException.FailedChunkIndex / AcceptedResults expose which batch chunks were accepted before a failure.
 - Stream-backed MailgunFile(fileName, Func<Stream>, contentType, length); Content is now nullable for such files.
 - The netstandard2.0 build is now executed by a net48 test project on the Windows CI leg.
+- The release workflow now builds and runs the test suite before packing, and the package is
+  validated for target-framework compatibility on pack (`EnablePackageValidation`); a red test
+  suite or an invalid package now blocks publishing.
 
 - Domain webhook management: a new `client.Webhooks` (`IMailgunWebhooks`) capability area that lists,
   reads, creates, updates, and deletes a domain's webhook registrations over Mailgun's v3 webhook

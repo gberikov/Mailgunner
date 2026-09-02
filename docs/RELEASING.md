@@ -52,7 +52,9 @@ tag to dry-run the pack without any risk of publishing.
    **if `NUGET_API_KEY` is present**, pushes both to nuget.org (`--skip-duplicate` makes a
    re-run safe). If the secret is absent, the job packs and then **stops before upload**.
    The workflow builds and runs the offline test suite first; a red test suite blocks the
-   pack and push.
+   pack and push. If the run fails on Test, nothing was packed or published — fix the
+   failure on `master`, then delete the tag locally and on origin
+   (`git tag -d vX.Y.Z && git push origin :refs/tags/vX.Y.Z`) and re-push it to retry.
 
 ## Versioning notes
 
