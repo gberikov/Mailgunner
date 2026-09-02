@@ -1,7 +1,7 @@
 using System.Net;
 using Mailgunner.Internal;
 using Mailgunner.Tests.Fakes;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Mailgunner.Tests.Retry;
@@ -89,25 +89,27 @@ public class BackoffIncreasesWithJitterTests
     {
         // End-to-end: BaseDelay == MaxSingleWait so every one of the 10 waits (2^9x growth by the
         // last) deterministically clamps to the same cap regardless of the jitter draw. The cap is
-        // kept under .NET's own ~49.7-day Task.Delay ceiling so the wait can actually be scheduled
-        // through the real pipeline (a day-scale cap is still ~86,400x anything the other retry
-        // tests use, which stay in the millisecond/second range). This does NOT exercise magnitudes
-        // anywhere near a long-tick overflow (30d * 2^9 ticks is nowhere close to long.MaxValue) —
-        // that guard is pinned directly, below, since no real delay that large can reach Task.Delay.
+        // kept well under the validator's one-day ceiling (itself set below .NET Framework 4.8's
+        // ~24.9-day timer ceiling, the lower of the two this library's target frameworks impose) so
+        // the configuration validates and the wait can actually be scheduled through the real
+        // pipeline (an hour-scale cap is still ~3,600x anything the other retry tests use, which
+        // stay in the millisecond/second range). This does NOT exercise magnitudes anywhere near a
+        // long-tick overflow (1h * 2^9 ticks is nowhere close to long.MaxValue) — that guard is
+        // pinned directly, below, since no real delay that large can reach Task.Delay.
         var stub = new StubHttpMessageHandler(HttpStatusCode.ServiceUnavailable, "{\"message\":\"busy\"}");
         var time = new RecordingTimeProvider();
         var client = RetryTestHarness.BuildClient(stub, time, configure: o =>
         {
             o.Retry.MaxRetryAttempts = 10;
-            o.Retry.BaseDelay = TimeSpan.FromDays(30);
-            o.Retry.MaxSingleWait = TimeSpan.FromDays(30);
+            o.Retry.BaseDelay = TimeSpan.FromHours(1);
+            o.Retry.MaxSingleWait = TimeSpan.FromHours(1);
             o.Retry.UseJitter = true;
         });
 
         await Assert.ThrowsAsync<MailgunnerException>(() => client.Suppressions.Bounces.ListPageAsync());
 
         Assert.Equal(10, time.Delays.Count);
-        Assert.All(time.Delays, d => Assert.Equal(TimeSpan.FromDays(30), d));
+        Assert.All(time.Delays, d => Assert.Equal(TimeSpan.FromHours(1), d));
     }
 
     [Fact]
@@ -118,15 +120,22 @@ public class BackoffIncreasesWithJitterTests
         // attempt index MaxAllowedRetryAttempts permits. TimeSpan.MaxValue.Ticks == long.MaxValue,
         // whose nearest double is exactly 2^63 -- one past what `long` can hold. Unprotected, casting
         // that back to `long` silently wraps to a large negative TimeSpan instead of throwing.
-        var stub = new StubHttpMessageHandler(HttpStatusCode.OK, RetryTestHarness.SuccessBody);
-        using var provider = RetryTestHarness.BuildProvider(stub, configure: o =>
+        // This is pure arithmetic-guard defense in depth against a magnitude the options validator
+        // now rejects outright (MailgunnerOptionsValidator bounds both durations to one day), so the
+        // handler is built via its internal constructor from a standalone RetryPolicyOptions rather
+        // than resolved through DI, deliberately bypassing that validation.
+        var retry = new RetryPolicyOptions
         {
-            o.Retry.MaxRetryAttempts = 10;
-            o.Retry.BaseDelay = TimeSpan.MaxValue;
-            o.Retry.MaxSingleWait = TimeSpan.MaxValue;
-            o.Retry.UseJitter = false; // isolate the boundary from the random draw
-        });
-        var handler = provider.GetRequiredService<MailgunResilienceHandler>();
+            MaxRetryAttempts = 10,
+            BaseDelay = TimeSpan.MaxValue,
+            MaxSingleWait = TimeSpan.MaxValue,
+            UseJitter = false, // isolate the boundary from the random draw
+        };
+        var handler = new MailgunResilienceHandler(
+            TimeProvider.System,
+            retry,
+            NullLogger<MailgunResilienceHandler>.Instance,
+            new DefaultRetryRandom());
 
         var delay = handler.ComputeBackoffDelay(9); // 0-based: the 10th and last permitted attempt
 

@@ -8,6 +8,11 @@ namespace Mailgunner.Internal;
 /// </summary>
 internal sealed class MailgunnerOptionsValidator : IValidateOptions<MailgunnerOptions>
 {
+    // Both TFMs' timer APIs reject a delay above their ceiling (Int32.MaxValue ms ≈ 24.9 days on
+    // .NET Framework, ~49.7 days on .NET 8). Bound well below the lower one so any accepted
+    // configuration is valid on every target the library ships for.
+    private static readonly TimeSpan MaxAllowedDuration = TimeSpan.FromDays(1);
+
     /// <inheritdoc />
     public ValidateOptionsResult Validate(string? name, MailgunnerOptions options)
     {
@@ -64,9 +69,19 @@ internal sealed class MailgunnerOptionsValidator : IValidateOptions<MailgunnerOp
                 failures.Add("The maximum single wait must be greater than or equal to the base delay (MailgunnerOptions.Retry.MaxSingleWait).");
             }
 
+            if (retry.MaxSingleWait > MaxAllowedDuration)
+            {
+                failures.Add($"The maximum single wait must not exceed {MaxAllowedDuration} (MailgunnerOptions.Retry.MaxSingleWait): above that, .NET Framework 4.8's ~24.9-day timer ceiling is exceeded and the wait cannot be scheduled.");
+            }
+
             if (retry.AttemptTimeout <= TimeSpan.Zero)
             {
                 failures.Add("The attempt timeout must be greater than zero (MailgunnerOptions.Retry.AttemptTimeout).");
+            }
+
+            if (retry.AttemptTimeout > MaxAllowedDuration)
+            {
+                failures.Add($"The attempt timeout must not exceed {MaxAllowedDuration} (MailgunnerOptions.Retry.AttemptTimeout): above that, .NET Framework 4.8's ~24.9-day timer ceiling is exceeded and the first attempt of every request fails.");
             }
         }
 

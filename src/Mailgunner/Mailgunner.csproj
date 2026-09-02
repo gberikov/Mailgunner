@@ -15,6 +15,11 @@
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
     <PackageReference Include="Polly.Core" />
     <PackageReference Include="System.Text.Json" />
+    <!-- TimeProvider (public API surface, e.g. MailgunWebhookSignature.Verify) is in-box on net8.0
+         but comes from this package on netstandard2.0; declared explicitly so it is a direct,
+         version-pinned dependency of the published netstandard2.0 package rather than an
+         undeclared transitive of Polly.Core. -->
+    <PackageReference Include="Microsoft.Bcl.TimeProvider" Condition="'$(TargetFramework)' == 'netstandard2.0'" />
   </ItemGroup>
 
   <ItemGroup>

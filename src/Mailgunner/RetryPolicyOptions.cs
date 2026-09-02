@@ -27,9 +27,11 @@ public sealed class RetryPolicyOptions
 
     /// <summary>
     /// Gets or sets the mandatory upper bound applied to <em>every single</em> wait, including a wait
-    /// derived from a server <c>Retry-After</c> header. Must be <c>&gt;= <see cref="BaseDelay"/></c>.
-    /// Guarantees a hostile or far-future value cannot stall a send indefinitely. Defaults to
-    /// 30&#160;seconds.
+    /// derived from a server <c>Retry-After</c> header. Must be <c>&gt;= <see cref="BaseDelay"/></c>
+    /// and at most one day &#8212; above that, .NET Framework 4.8's ~24.9-day timer ceiling (the
+    /// lower of the two ceilings across the frameworks this library targets) is exceeded and the
+    /// wait cannot be scheduled. Guarantees a hostile or far-future value cannot stall a send
+    /// indefinitely. Defaults to 30&#160;seconds.
     /// </summary>
     public TimeSpan MaxSingleWait { get; set; } = TimeSpan.FromSeconds(30);
 
@@ -52,7 +54,10 @@ public sealed class RetryPolicyOptions
     /// response). An attempt exceeding it is abandoned and surfaces as <see cref="TimeoutException"/>,
     /// which the retry policy treats as a transient transport fault. Replaces the typed client's overall
     /// <c>HttpClient.Timeout</c>, which the library sets to infinite so backoff waits are never cut short.
-    /// Must be <c>&gt; <see cref="TimeSpan.Zero"/></c>. Defaults to 100&#160;seconds.
+    /// Must be <c>&gt; <see cref="TimeSpan.Zero"/></c> and at most one day &#8212; above that,
+    /// .NET Framework 4.8's ~24.9-day timer ceiling (the lower of the two ceilings across the
+    /// frameworks this library targets) is exceeded and the <em>first</em> attempt of every request
+    /// fails, not only a retry. Defaults to 100&#160;seconds.
     /// </summary>
     public TimeSpan AttemptTimeout { get; set; } = TimeSpan.FromSeconds(100);
 }
