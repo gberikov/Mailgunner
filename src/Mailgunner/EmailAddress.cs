@@ -1,3 +1,5 @@
+using Mailgunner.Internal;
+
 namespace Mailgunner;
 
 /// <summary>
@@ -23,13 +25,13 @@ public readonly struct EmailAddress : System.IEquatable<EmailAddress>
             throw new System.ArgumentException("An email address is required.", nameof(address));
         }
 
-        if (ContainsControlCharacter(address))
+        if (TextGuards.ContainsControlCharacter(address))
         {
             throw new System.ArgumentException(
                 "An email address must not contain control characters.", nameof(address));
         }
 
-        if (displayName is not null && ContainsControlCharacter(displayName))
+        if (displayName is not null && TextGuards.ContainsControlCharacter(displayName))
         {
             throw new System.ArgumentException(
                 "A display name must not contain control characters.", nameof(displayName));
@@ -125,19 +127,6 @@ public readonly struct EmailAddress : System.IEquatable<EmailAddress>
                     return true;
                 default:
                     break;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool ContainsControlCharacter(string value)
-    {
-        foreach (var c in value)
-        {
-            if (char.IsControl(c))
-            {
-                return true;
             }
         }
 

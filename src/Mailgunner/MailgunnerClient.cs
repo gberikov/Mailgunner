@@ -84,23 +84,20 @@ internal sealed class MailgunnerClient : IMailgunnerClient
         System.Net.Http.HttpContent content,
         System.Threading.CancellationToken cancellationToken)
     {
-        var requestUri = new Uri($"v3/{_domain}/messages", UriKind.Relative);
-        using var response = await HttpClient
-            .PostAsync(requestUri, content, cancellationToken)
-            .ConfigureAwait(false);
+        var request = new System.Net.Http.HttpRequestMessage(
+            System.Net.Http.HttpMethod.Post, new Uri($"v3/{_domain}/messages", UriKind.Relative))
+        {
+            Content = content,
+        };
 
-#if NET8_0_OR_GREATER
-        var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-#else
-        var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-#endif
+        var (status, body) = await MailgunHttp.SendAsync(HttpClient, request, cancellationToken).ConfigureAwait(false);
 
-        if (response.IsSuccessStatusCode && TryParseResult(body, out var result))
+        if (TryParseResult(body, out var result))
         {
             return result;
         }
 
-        throw new MailgunnerException((int)response.StatusCode, body);
+        throw new MailgunnerException(status, body);
     }
 
     private static bool TryParseResult(string body, out SendResult result)

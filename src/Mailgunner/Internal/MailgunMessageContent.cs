@@ -22,7 +22,7 @@ internal static class MailgunMessageContent
         Validate(message);
 
         var content = new System.Net.Http.MultipartFormDataContent();
-        Add(content, "from", message.From.ToString());
+        MailgunHttp.AddField(content, "from", message.From.ToString());
 
         foreach (var recipient in message.To)
         {
@@ -41,36 +41,36 @@ internal static class MailgunMessageContent
 
         if (message.Subject is not null)
         {
-            Add(content, "subject", message.Subject);
+            MailgunHttp.AddField(content, "subject", message.Subject);
         }
 
         if (!string.IsNullOrEmpty(message.Text))
         {
-            Add(content, "text", message.Text!);
+            MailgunHttp.AddField(content, "text", message.Text!);
         }
 
         if (!string.IsNullOrEmpty(message.Html))
         {
-            Add(content, "html", message.Html!);
+            MailgunHttp.AddField(content, "html", message.Html!);
         }
 
         if (!string.IsNullOrWhiteSpace(message.Template))
         {
-            Add(content, "template", message.Template!);
+            MailgunHttp.AddField(content, "template", message.Template!);
 
             if (!string.IsNullOrWhiteSpace(message.TemplateVersion))
             {
-                Add(content, "t:version", message.TemplateVersion!);
+                MailgunHttp.AddField(content, "t:version", message.TemplateVersion!);
             }
 
             if (message.GenerateTextFromTemplate)
             {
-                Add(content, "t:text", "yes");
+                MailgunHttp.AddField(content, "t:text", "yes");
             }
 
             if (message.TemplateVariables.Count > 0)
             {
-                Add(content, "t:variables", System.Text.Json.JsonSerializer.Serialize(message.TemplateVariables));
+                MailgunHttp.AddField(content, "t:variables", System.Text.Json.JsonSerializer.Serialize(message.TemplateVariables));
             }
         }
 
@@ -159,9 +159,6 @@ internal static class MailgunMessageContent
             return;
         }
 
-        Add(content, field, recipient.ToString());
+        MailgunHttp.AddField(content, field, recipient.ToString());
     }
-
-    private static void Add(System.Net.Http.MultipartFormDataContent content, string name, string value) =>
-        content.Add(new System.Net.Http.StringContent(value), name);
 }

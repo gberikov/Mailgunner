@@ -96,36 +96,36 @@ internal static class MailgunBatchContent
     {
         var content = new System.Net.Http.MultipartFormDataContent();
 
-        Add(content, "from", message.From.ToString());
+        MailgunHttp.AddField(content, "from", message.From.ToString());
 
         foreach (var recipient in chunk)
         {
-            Add(content, "to", recipient.Address.ToString());
+            MailgunHttp.AddField(content, "to", recipient.Address.ToString());
         }
 
         if (message.Subject is not null)
         {
-            Add(content, "subject", message.Subject);
+            MailgunHttp.AddField(content, "subject", message.Subject);
         }
 
-        Add(content, "template", message.Template!);
+        MailgunHttp.AddField(content, "template", message.Template!);
 
         if (!string.IsNullOrWhiteSpace(message.TemplateVersion))
         {
-            Add(content, "t:version", message.TemplateVersion!);
+            MailgunHttp.AddField(content, "t:version", message.TemplateVersion!);
         }
 
         if (message.GenerateTextFromTemplate)
         {
-            Add(content, "t:text", "yes");
+            MailgunHttp.AddField(content, "t:text", "yes");
         }
 
         if (message.TemplateVariables.Count > 0)
         {
-            Add(content, "t:variables", System.Text.Json.JsonSerializer.Serialize(message.TemplateVariables));
+            MailgunHttp.AddField(content, "t:variables", System.Text.Json.JsonSerializer.Serialize(message.TemplateVariables));
         }
 
-        Add(content, "recipient-variables", SerializeRecipientVariables(chunk));
+        MailgunHttp.AddField(content, "recipient-variables", SerializeRecipientVariables(chunk));
 
         MailgunOptionsContent.Append(content, message.Options, message.Attachments, message.InlineFiles);
 
@@ -145,7 +145,4 @@ internal static class MailgunBatchContent
 
         return System.Text.Json.JsonSerializer.Serialize(map);
     }
-
-    private static void Add(System.Net.Http.MultipartFormDataContent content, string name, string value) =>
-        content.Add(new System.Net.Http.StringContent(value), name);
 }

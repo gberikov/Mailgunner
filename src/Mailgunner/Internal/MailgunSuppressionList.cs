@@ -106,7 +106,8 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
             throw new System.ArgumentException("An address is required.", nameof(address));
         }
 
-        var (status, body) = await SendCoreAsync(
+        var (status, body) = await MailgunHttp.SendAsync(
+            _httpClient,
             new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, ItemUri(address)),
             cancellationToken).ConfigureAwait(false);
 
@@ -164,7 +165,7 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
                 Content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json"),
             };
 
-            await SendCoreAsync(request, cancellationToken).ConfigureAwait(false);
+            await MailgunHttp.SendAsync(_httpClient, request, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -178,7 +179,8 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
             throw new System.ArgumentException("An address is required.", nameof(address));
         }
 
-        await SendCoreAsync(
+        await MailgunHttp.SendAsync(
+            _httpClient,
             new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Delete, ItemUri(address)),
             cancellationToken).ConfigureAwait(false);
     }
@@ -187,7 +189,8 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
     public async System.Threading.Tasks.Task ClearAsync(
         System.Threading.CancellationToken cancellationToken = default)
     {
-        await SendCoreAsync(
+        await MailgunHttp.SendAsync(
+            _httpClient,
             new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Delete, RootUri()),
             cancellationToken).ConfigureAwait(false);
     }
@@ -255,7 +258,8 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
     private async System.Threading.Tasks.Task<SuppressionPage<TEntry>> FetchPageAsync(
         System.Uri uri, System.Threading.CancellationToken cancellationToken)
     {
-        var (_, body) = await SendCoreAsync(
+        var (_, body) = await MailgunHttp.SendAsync(
+            _httpClient,
             new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, uri),
             cancellationToken).ConfigureAwait(false);
 
@@ -270,30 +274,5 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
         }
 
         return new SuppressionPage<TEntry>(items, page?.Paging?.Next);
-    }
-
-    /// <summary>
-    /// Issues <paramref name="request"/>, reads the body, and throws <see cref="MailgunnerException"/> on
-    /// any non-success response (mirroring the send path's error contract). Returns the status code and
-    /// raw body on success.
-    /// </summary>
-    private async System.Threading.Tasks.Task<(int Status, string Body)> SendCoreAsync(
-        System.Net.Http.HttpRequestMessage request, System.Threading.CancellationToken cancellationToken)
-    {
-        using (request)
-        using (var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false))
-        {
-#if NET8_0_OR_GREATER
-            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-#else
-            var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-#endif
-            if (!response.IsSuccessStatusCode)
-            {
-                throw new MailgunnerException((int)response.StatusCode, body);
-            }
-
-            return ((int)response.StatusCode, body);
-        }
     }
 }

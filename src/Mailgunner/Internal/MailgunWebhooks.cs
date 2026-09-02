@@ -26,7 +26,8 @@ internal sealed class MailgunWebhooks : IMailgunWebhooks
     public async System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<WebhookRegistration>> ListAsync(
         System.Threading.CancellationToken cancellationToken = default)
     {
-        var (_, body) = await SendCoreAsync(
+        var (_, body) = await MailgunHttp.SendAsync(
+            _httpClient,
             new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, RootUri()),
             cancellationToken).ConfigureAwait(false);
 
@@ -56,7 +57,8 @@ internal sealed class MailgunWebhooks : IMailgunWebhooks
         System.Threading.CancellationToken cancellationToken = default)
     {
         var uri = ItemUri(eventType);
-        var (status, body) = await SendCoreAsync(
+        var (status, body) = await MailgunHttp.SendAsync(
+            _httpClient,
             new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, uri),
             cancellationToken).ConfigureAwait(false);
 
@@ -81,7 +83,8 @@ internal sealed class MailgunWebhooks : IMailgunWebhooks
             content.Add(new System.Net.Http.StringContent(url), "url");
         }
 
-        var (status, body) = await SendCoreAsync(
+        var (status, body) = await MailgunHttp.SendAsync(
+            _httpClient,
             new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, RootUri()) { Content = content },
             cancellationToken).ConfigureAwait(false);
 
@@ -136,7 +139,8 @@ internal sealed class MailgunWebhooks : IMailgunWebhooks
             content.Add(new System.Net.Http.StringContent(url), "url");
         }
 
-        var (status, body) = await SendCoreAsync(
+        var (status, body) = await MailgunHttp.SendAsync(
+            _httpClient,
             new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Put, uri) { Content = content },
             cancellationToken).ConfigureAwait(false);
 
@@ -149,7 +153,8 @@ internal sealed class MailgunWebhooks : IMailgunWebhooks
         System.Threading.CancellationToken cancellationToken = default)
     {
         var uri = ItemUri(eventType);
-        await SendCoreAsync(
+        await MailgunHttp.SendAsync(
+            _httpClient,
             new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Delete, uri),
             cancellationToken).ConfigureAwait(false);
     }
@@ -218,30 +223,5 @@ internal sealed class MailgunWebhooks : IMailgunWebhooks
             : fallbackUrls ?? (System.Collections.Generic.IReadOnlyList<string>)System.Array.Empty<string>();
 
         return new WebhookRegistration(eventType, urls);
-    }
-
-    /// <summary>
-    /// Issues <paramref name="request"/>, reads the body, and throws <see cref="MailgunnerException"/> on
-    /// any non-success response (mirroring the send and suppression paths). Returns the status code and
-    /// raw body on success.
-    /// </summary>
-    private async System.Threading.Tasks.Task<(int Status, string Body)> SendCoreAsync(
-        System.Net.Http.HttpRequestMessage request, System.Threading.CancellationToken cancellationToken)
-    {
-        using (request)
-        using (var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false))
-        {
-#if NET8_0_OR_GREATER
-            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-#else
-            var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-#endif
-            if (!response.IsSuccessStatusCode)
-            {
-                throw new MailgunnerException((int)response.StatusCode, body);
-            }
-
-            return ((int)response.StatusCode, body);
-        }
     }
 }

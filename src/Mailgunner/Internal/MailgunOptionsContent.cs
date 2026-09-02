@@ -32,32 +32,32 @@ internal static class MailgunOptionsContent
         {
             if (!string.IsNullOrWhiteSpace(tag))
             {
-                Add(content, "o:tag", tag);
+                MailgunHttp.AddField(content, "o:tag", tag);
             }
         }
 
         // 2. Test mode — present only when enabled.
         if (options.TestMode)
         {
-            Add(content, "o:testmode", "yes");
+            MailgunHttp.AddField(content, "o:testmode", "yes");
         }
 
         // 3. Open tracking — omitted when null.
         if (options.TrackingOpens is bool trackOpens)
         {
-            Add(content, "o:tracking-opens", trackOpens ? "yes" : "no");
+            MailgunHttp.AddField(content, "o:tracking-opens", trackOpens ? "yes" : "no");
         }
 
         // 4. Click tracking — omitted when null; supports htmlonly.
         if (options.TrackingClicks is ClickTracking trackClicks)
         {
-            Add(content, "o:tracking-clicks", ClickTrackingValue(trackClicks));
+            MailgunHttp.AddField(content, "o:tracking-clicks", ClickTrackingValue(trackClicks));
         }
 
         // 5. Scheduled delivery time — RFC 2822 with a numeric offset.
         if (options.DeliveryTime is System.DateTimeOffset deliveryTime)
         {
-            Add(content, "o:deliverytime", FormatRfc2822(deliveryTime));
+            MailgunHttp.AddField(content, "o:deliverytime", FormatRfc2822(deliveryTime));
         }
 
         // 6. Custom headers — h:<name>; unique names; name must be a valid header token and the
@@ -71,25 +71,25 @@ internal static class MailgunOptionsContent
             }
 
             var headerValue = header.Value ?? string.Empty;
-            if (ContainsLineBreak(headerValue))
+            if (TextGuards.ContainsLineBreak(headerValue))
             {
                 throw new System.ArgumentException(
                     "A custom header value must not contain line breaks.", nameof(options));
             }
 
-            Add(content, "h:" + header.Key, headerValue);
+            MailgunHttp.AddField(content, "h:" + header.Key, headerValue);
         }
 
         // 7. Custom variables — v:<name>; string values verbatim; blank or control-bearing name rejected.
         foreach (var variable in options.CustomVariables)
         {
-            if (string.IsNullOrWhiteSpace(variable.Key) || ContainsControlCharacter(variable.Key))
+            if (string.IsNullOrWhiteSpace(variable.Key) || TextGuards.ContainsControlCharacter(variable.Key))
             {
                 throw new System.ArgumentException(
                     "A custom variable name must be non-blank and free of control characters.", nameof(options));
             }
 
-            Add(content, "v:" + variable.Key, variable.Value);
+            MailgunHttp.AddField(content, "v:" + variable.Key, variable.Value);
         }
 
         // 7b. List-Unsubscribe (RFC 8058 / RFC 2369) — opt-in; emits h:List-Unsubscribe and, when
@@ -159,7 +159,7 @@ internal static class MailgunOptionsContent
         if (hasUrl)
         {
             var url = unsubscribe.Url!;
-            if (ContainsLineBreak(url) || ContainsControlCharacter(url))
+            if (TextGuards.ContainsLineBreak(url) || TextGuards.ContainsControlCharacter(url))
             {
                 throw new System.ArgumentException(
                     "A List-Unsubscribe Url must not contain control characters or line breaks.", nameof(options));
@@ -190,11 +190,11 @@ internal static class MailgunOptionsContent
             targets.Add("<mailto:" + unsubscribe.MailtoAddress!.Value.Address + ">");
         }
 
-        Add(content, "h:List-Unsubscribe", string.Join(", ", targets));
+        MailgunHttp.AddField(content, "h:List-Unsubscribe", string.Join(", ", targets));
 
         if (unsubscribe.OneClick)
         {
-            Add(content, "h:List-Unsubscribe-Post", "List-Unsubscribe=One-Click");
+            MailgunHttp.AddField(content, "h:List-Unsubscribe-Post", "List-Unsubscribe=One-Click");
         }
     }
 
@@ -252,33 +252,4 @@ internal static class MailgunOptionsContent
 
         return true;
     }
-
-    private static bool ContainsLineBreak(string value)
-    {
-        foreach (var c in value)
-        {
-            if (c == '\r' || c == '\n')
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool ContainsControlCharacter(string value)
-    {
-        foreach (var c in value)
-        {
-            if (char.IsControl(c))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static void Add(System.Net.Http.MultipartFormDataContent content, string name, string value) =>
-        content.Add(new System.Net.Http.StringContent(value), name);
 }
