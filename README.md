@@ -365,6 +365,20 @@ bool authentic = MailgunWebhookSignature.Verify(
     maxAge:     TimeSpan.FromMinutes(5));
 ```
 
+## Limitations & notes
+
+- **No trimming/AOT guarantee.** Template and recipient variables (`t:variables`, `recipient-variables`) are
+  serialized with reflection-based `System.Text.Json`; in a Native AOT app that path throws at runtime. The
+  suppression and webhook DTOs use source generation and are unaffected.
+- **Duplicate delivery vs. retries.** A send is retried only on HTTP 429 by default (`SendRetryMode.Safe`); with
+  `SendRetryMode.Full` a lost response can lead to the same message being delivered twice.
+- **Timeouts.** Each attempt is bounded by `Retry.AttemptTimeout`; the typed `HttpClient.Timeout` is infinite.
+  The worst-case wall time of one call is `(MaxRetryAttempts + 1) × AttemptTimeout + Σ waits`.
+- **Batch failures.** `SendBatchAsync` is fail-fast; `MailgunnerException.AcceptedResults` / `FailedChunkIndex`
+  tell you which chunks were already accepted so you can resume from the failed one.
+- **16KB parameter cap** on `o:`/`h:`/`v:`/`t:` fields is not enforced client-side (see
+  [Send options & limits](#send-options--limits)).
+
 ## Building from source
 
 Requires a [.NET SDK](https://dotnet.microsoft.com/download) matching `global.json`
