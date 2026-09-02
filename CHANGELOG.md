@@ -7,11 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Domain webhook management now targets Mailgun's actual path `/v3/domains/{domain}/webhooks`; the previous `/v3/{domain}/webhooks` returned HTTP 404 for every operation.
+
 ### Added
 
 - Domain webhook management: a new `client.Webhooks` (`IMailgunWebhooks`) capability area that lists,
   reads, creates, updates, and deletes a domain's webhook registrations over Mailgun's v3 webhook
-  endpoints (`/v3/{domain}/webhooks`), mirroring the shape of `client.Suppressions`. A webhook is keyed by
+  endpoints (`/v3/domains/{domain}/webhooks`), mirroring the shape of `client.Suppressions`. A webhook is keyed by
   one of a closed, typed set of event types (`WebhookEventType`: `Delivered`, `Opened`, `Clicked`,
   `Unsubscribed`, `Complained`, `PermanentFail`, `TemporaryFail`) and carries one or more callback URLs,
   returned as a typed `WebhookRegistration` (`EventType` + `Urls`). `CreateAsync(eventType, urls)` and

@@ -155,10 +155,10 @@ internal sealed class MailgunWebhooks : IMailgunWebhooks
     }
 
     private System.Uri RootUri() =>
-        new System.Uri($"v3/{_domain}/webhooks", System.UriKind.Relative);
+        new System.Uri($"v3/domains/{_domain}/webhooks", System.UriKind.Relative);
 
     private System.Uri ItemUri(WebhookEventType eventType) =>
-        new System.Uri($"v3/{_domain}/webhooks/{WebhookEventTypes.ToToken(eventType)}", System.UriKind.Relative);
+        new System.Uri($"v3/domains/{_domain}/webhooks/{WebhookEventTypes.ToToken(eventType)}", System.UriKind.Relative);
 
     /// <summary>
     /// Materializes the supplied URLs, dropping null/blank entries, and requires at least one to remain.

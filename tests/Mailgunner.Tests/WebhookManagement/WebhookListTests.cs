@@ -16,7 +16,7 @@ public class WebhookListTests
         var registrations = await client.Webhooks.ListAsync();
 
         Assert.Equal(HttpMethod.Get, stub.LastMethod);
-        Assert.EndsWith($"/v3/{WebhookHarness.Domain}/webhooks", stub.LastRequestUri!.AbsolutePath);
+        Assert.EndsWith($"/v3/domains/{WebhookHarness.Domain}/webhooks", stub.LastRequestUri!.AbsolutePath);
         Assert.Equal(2, registrations.Count);
 
         var delivered = Assert.Single(registrations, r => r.EventType == WebhookEventType.Delivered);
