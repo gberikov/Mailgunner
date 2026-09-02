@@ -379,12 +379,16 @@ dotnet test Mailgunner.slnx -c Release
 Tests run fully offline — no network access or Mailgun credentials are required.
 
 Live integration tests (`tests/Mailgunner.IntegrationTests`) run only when the `Mailgun__*`
-variables from the [sample section](#run-the-sample) are set; without them every test returns
-early and the suite stays green. They are not part of `Mailgunner.slnx`'s CI/release runs — CI
-and the release workflow invoke `dotnet test` scoped to the offline projects only — so opting in
-is a manual, local `dotnet test tests/Mailgunner.IntegrationTests` with the environment variables
-exported. Sends use `MailgunSendOptions.TestMode`, so nothing is actually delivered, and every
-test removes whatever suppression entry or webhook it created, even when it fails partway.
+variables from the [sample section](#run-the-sample) are set; without them every test reports
+`Skipped` and the suite stays green. They are not part of `Mailgunner.slnx`'s CI/release runs —
+CI and the release workflow invoke `dotnet test` scoped to the offline projects only — so opting
+in is a manual, local `dotnet test tests/Mailgunner.IntegrationTests` with the environment
+variables exported. Sends use `MailgunSendOptions.TestMode`, so nothing is actually delivered,
+and every test removes whatever suppression entry or webhook it created, even when it fails
+partway; the webhook test restores (rather than deletes) any registration that already existed
+for the event type it exercises, since a webhook is a single whole-domain registration per event
+type with no way to namespace it — run these against a sandbox/test domain, not one serving real
+traffic on that event type.
 
 ## Project layout
 

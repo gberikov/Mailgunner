@@ -4,10 +4,11 @@ namespace Mailgunner.IntegrationTests;
 
 public class SuppressionsLiveTests
 {
-    [Fact]
+    [SkippableFact]
     public async Task Bounce_add_get_list_remove_round_trip()
     {
-        if (Live.Client is not { } client) { return; }
+        Skip.If(Live.Client is null, Live.NotConfigured);
+        var client = Live.Client!;
         var address = $"live-{Guid.NewGuid():N}@example.com";
 
         await client.Suppressions.Bounces.AddAsync(new Bounce { Address = address, Code = "550", Error = "live test" });
@@ -23,18 +24,19 @@ public class SuppressionsLiveTests
         }
         finally
         {
-            // Runs even on assertion failure above, so the suppression entry never outlives the test.
-            await client.Suppressions.Bounces.RemoveAsync(address);
+            // Best-effort: never lets a cleanup failure mask the assertions above.
+            await Live.CleanupAsync(() => client.Suppressions.Bounces.RemoveAsync(address));
         }
 
         var ex = await Assert.ThrowsAsync<MailgunnerException>(() => client.Suppressions.Bounces.GetAsync(address));
         Assert.Equal(404, ex.StatusCode);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Unsubscribe_add_range_and_clear_entries()
     {
-        if (Live.Client is not { } client) { return; }
+        Skip.If(Live.Client is null, Live.NotConfigured);
+        var client = Live.Client!;
         var a = $"live-{Guid.NewGuid():N}@example.com";
         var b = $"live-{Guid.NewGuid():N}@example.com";
         var allTags = new[] { "*" };
@@ -51,9 +53,10 @@ public class SuppressionsLiveTests
         }
         finally
         {
-            // Runs even on assertion failure above, so both entries never outlive the test.
-            await client.Suppressions.Unsubscribes.RemoveAsync(a);
-            await client.Suppressions.Unsubscribes.RemoveAsync(b);
+            // Each removal is isolated: one throwing does not stop the other from being attempted,
+            // and neither can mask the assertion above.
+            await Live.CleanupAsync(() => client.Suppressions.Unsubscribes.RemoveAsync(a));
+            await Live.CleanupAsync(() => client.Suppressions.Unsubscribes.RemoveAsync(b));
         }
     }
 }

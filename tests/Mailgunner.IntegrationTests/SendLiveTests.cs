@@ -4,10 +4,12 @@ namespace Mailgunner.IntegrationTests;
 
 public class SendLiveTests
 {
-    [Fact]
+    [SkippableFact]
     public async Task Test_mode_send_is_accepted()
     {
-        if (Live.Client is not { } client || Live.Recipient is null) { return; }
+        Skip.If(Live.Client is null, Live.NotConfigured);
+        Skip.If(Live.Recipient is null, "Mailgun__Recipients__0__Address not set");
+        var client = Live.Client!;
         var message = new MailgunMessage
         {
             From = $"postmaster@{Live.Domain}",

@@ -4,14 +4,26 @@ namespace Mailgunner.IntegrationTests;
 
 public class WebhooksLiveTests
 {
-    [Fact]
+    [SkippableFact]
     public async Task Create_get_update_list_delete_round_trip()
     {
-        if (Live.Client is not { } client) { return; }
+        Skip.If(Live.Client is null, Live.NotConfigured);
+        var client = Live.Client!;
         const WebhookEventType type = WebhookEventType.TemporaryFail;
         var url = $"https://example.com/hooks/{Guid.NewGuid():N}";
 
-        try { await client.Webhooks.DeleteAsync(type); } catch (MailgunnerException cleanupEx) when (cleanupEx.StatusCode == 404) { }
+        // Snapshot whatever is already registered for this event type (there is no way to
+        // namespace a webhook the way a random suppression address namespaces itself — it is one
+        // whole-domain registration per event type) so it can be restored, not destroyed.
+        WebhookRegistration? previous = null;
+        try
+        {
+            previous = await client.Webhooks.GetAsync(type);
+            await client.Webhooks.DeleteAsync(type);
+        }
+        catch (MailgunnerException getEx) when (getEx.StatusCode == 404)
+        {
+        }
 
         try
         {
@@ -23,14 +35,20 @@ public class WebhooksLiveTests
 
             var listed = await client.Webhooks.ListAsync();
             Assert.Contains(listed, r => r.EventType == type);
+
+            await client.Webhooks.DeleteAsync(type);
+            var ex = await Assert.ThrowsAsync<MailgunnerException>(() => client.Webhooks.GetAsync(type));
+            Assert.Equal(404, ex.StatusCode);
         }
         finally
         {
-            // Runs even on assertion failure above, so the test registration never outlives the test.
-            try { await client.Webhooks.DeleteAsync(type); } catch (MailgunnerException cleanupEx) when (cleanupEx.StatusCode == 404) { }
+            // Restore the pre-existing registration (if any); otherwise leave it deleted, which is
+            // the state it was already in. Best-effort: never lets a restore failure mask the
+            // assertions above.
+            if (previous is { } original)
+            {
+                await Live.CleanupAsync(() => client.Webhooks.CreateAsync(type, original.Urls));
+            }
         }
-
-        var ex = await Assert.ThrowsAsync<MailgunnerException>(() => client.Webhooks.GetAsync(type));
-        Assert.Equal(404, ex.StatusCode);
     }
 }
