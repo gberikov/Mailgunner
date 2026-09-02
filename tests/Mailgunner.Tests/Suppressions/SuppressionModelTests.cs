@@ -84,4 +84,16 @@ public class SuppressionModelTests
 
         Assert.Null(Assert.Single(page.Items).CreatedAt);
     }
+
+    [Fact]
+    public async Task Created_at_with_mailgun_utc_suffix_is_parsed()
+    {
+        // Mailgun's real wire format ends in "UTC", which the general .NET parser rejects.
+        var client = BuildClient(
+            "{\"items\":[{\"address\":\"a@x.com\",\"created_at\":\"Thu, 11 Dec 2025 01:49:40 UTC\"}],\"paging\":{}}");
+
+        var page = await client.Suppressions.Bounces.ListPageAsync();
+
+        Assert.Equal(new DateTimeOffset(2025, 12, 11, 1, 49, 40, TimeSpan.Zero), Assert.Single(page.Items).CreatedAt);
+    }
 }

@@ -92,6 +92,9 @@ internal sealed class MailgunSuppressions : IMailgunSuppressions
 /// </summary>
 internal static class SuppressionTime
 {
+    /// <summary>Mailgun's documented <c>created_at</c> shape, e.g. <c>Thu, 11 Dec 2025 01:49:40 UTC</c>.</summary>
+    private const string MailgunFormat = "ddd, dd MMM yyyy HH:mm:ss 'UTC'";
+
     public static System.DateTimeOffset? Parse(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -99,15 +102,16 @@ internal static class SuppressionTime
             return null;
         }
 
-        if (System.DateTimeOffset.TryParse(
-                value,
-                System.Globalization.CultureInfo.InvariantCulture,
-                System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
-                out var result))
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        const System.Globalization.DateTimeStyles styles =
+            System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal;
+
+        if (System.DateTimeOffset.TryParseExact(value, MailgunFormat, inv, styles, out var exact))
         {
-            return result;
+            return exact;
         }
 
-        return null;
+        // Fallback for RFC 1123 ("GMT") and numeric-offset variants.
+        return System.DateTimeOffset.TryParse(value, inv, styles, out var general) ? general : null;
     }
 }
