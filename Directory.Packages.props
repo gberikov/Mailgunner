@@ -22,6 +22,9 @@
     <PackageVersion Include="coverlet.collector" Version="10.0.1" />
     <!-- Test-only: builds an in-memory IConfiguration to exercise the named config-section overload. -->
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
+    <!-- Test-only: net48 reference assemblies, so tests/Mailgunner.NetFxTests compiles on a runner
+         (e.g. Linux) that has no .NET Framework 4.8 targeting pack installed. -->
+    <PackageVersion Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" />
   </ItemGroup>
 
   <!--
