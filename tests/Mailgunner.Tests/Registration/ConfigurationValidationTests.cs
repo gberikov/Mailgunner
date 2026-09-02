@@ -78,6 +78,20 @@ public class ConfigurationValidationTests
         Assert.Contains(ex.Failures, f => f.Contains("region", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public void Non_positive_attempt_timeout_fails_at_startup()
+    {
+        var ex = ValidateThrows(o =>
+        {
+            o.Domain = "mg.example.com";
+            o.SendingKey = "key-123";
+            o.Region = MailgunRegion.Us;
+            o.Retry.AttemptTimeout = TimeSpan.Zero;
+        });
+
+        Assert.Contains(ex.Failures, f => f.Contains("AttemptTimeout", StringComparison.Ordinal));
+    }
+
     private static OptionsValidationException ValidateThrows(Action<MailgunnerOptions> configure)
     {
         var services = new ServiceCollection();

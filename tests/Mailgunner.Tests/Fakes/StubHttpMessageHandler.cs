@@ -178,6 +178,13 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
     /// </summary>
     public Func<int, bool>? TransientFailureSelector { get; set; }
 
+    /// <summary>
+    /// An optional per-request-index asynchronous hook awaited before the response is produced, with
+    /// the request's cancellation token. Lets a test model a hanging attempt (await an infinite delay
+    /// bound to the token) so a per-attempt timeout can be exercised offline.
+    /// </summary>
+    public Func<int, CancellationToken, Task>? BeforeResponse { get; set; }
+
     /// <inheritdoc />
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
@@ -225,6 +232,11 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
 
         OnSend?.Invoke(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
+
+        if (BeforeResponse is not null)
+        {
+            await BeforeResponse(index, cancellationToken).ConfigureAwait(false);
+        }
 
         if (TransientFailureSelector?.Invoke(index) == true)
         {

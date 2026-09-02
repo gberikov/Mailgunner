@@ -268,6 +268,7 @@ services.AddMailgunner(o =>
     o.Retry.MaxSingleWait = TimeSpan.FromSeconds(30);   // mandatory cap on any single wait (>= BaseDelay)
     o.Retry.UseJitter = true;                           // bounded additive jitter
     o.Retry.SendRetryMode = SendRetryMode.Safe;         // Safe (429 only) or Full
+    o.Retry.AttemptTimeout = TimeSpan.FromSeconds(100);  // cap on a single attempt; HttpClient.Timeout is set to infinite
 });
 ```
 

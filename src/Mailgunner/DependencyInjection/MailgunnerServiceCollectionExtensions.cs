@@ -82,6 +82,7 @@ public static class MailgunnerServiceCollectionExtensions
 
         return services.AddHttpClient<IMailgunnerClient, MailgunnerClient>(static (provider, client) =>
         {
+            client.Timeout = Timeout.InfiniteTimeSpan; // per-attempt timeout lives in the resilience handler
             var options = provider.GetRequiredService<IOptions<MailgunnerOptions>>().Value;
             client.BaseAddress = MailgunRegionEndpoints.ForRegion(options.Region);
 
@@ -220,6 +221,7 @@ public static class MailgunnerServiceCollectionExtensions
 
         return services.AddHttpClient(NamedClientRegistry.HttpClientName(name), (provider, client) =>
         {
+            client.Timeout = Timeout.InfiniteTimeSpan; // per-attempt timeout lives in the resilience handler
             var options = provider.GetRequiredService<IOptionsMonitor<MailgunnerOptions>>().Get(name);
             client.BaseAddress = MailgunRegionEndpoints.ForRegion(options.Region);
 

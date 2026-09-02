@@ -42,4 +42,13 @@ public sealed class RetryPolicyOptions
     /// (retry only on <c>429</c>) because a send is not idempotent. See <see cref="Mailgunner.SendRetryMode"/>.
     /// </summary>
     public SendRetryMode SendRetryMode { get; set; } = SendRetryMode.Safe;
+
+    /// <summary>
+    /// Gets or sets the maximum duration of a <em>single</em> attempt (connect, send, and read of the
+    /// response). An attempt exceeding it is abandoned and surfaces as <see cref="System.TimeoutException"/>,
+    /// which the retry policy treats as a transient transport fault. Replaces the typed client's overall
+    /// <c>HttpClient.Timeout</c>, which the library sets to infinite so backoff waits are never cut short.
+    /// Must be <c>&gt; <see cref="System.TimeSpan.Zero"/></c>. Defaults to 100&#160;seconds.
+    /// </summary>
+    public System.TimeSpan AttemptTimeout { get; set; } = System.TimeSpan.FromSeconds(100);
 }

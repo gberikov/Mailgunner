@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- RetryPolicyOptions.AttemptTimeout (default 100 s) bounds each attempt; the typed HttpClient's overall Timeout is now infinite so retries and backoff are never cut short by it.
 - ISuppressionList<T>.AddRangeAsync for bulk adds (chunks of 1000 per request).
 
 - Domain webhook management: a new `client.Webhooks` (`IMailgunWebhooks`) capability area that lists,

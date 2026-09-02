@@ -109,7 +109,7 @@ internal sealed class MailgunResilienceHandler : DelegatingHandler
         {
             var response = await _pipeline
                 .ExecuteAsync(
-                    async ctx => await base.SendAsync(request, ctx.CancellationToken).ConfigureAwait(false),
+                    async ctx => await SendAttemptAsync(request, ctx.CancellationToken).ConfigureAwait(false),
                     context)
                 .ConfigureAwait(false);
 
@@ -137,6 +137,26 @@ internal sealed class MailgunResilienceHandler : DelegatingHandler
         finally
         {
             ResilienceContextPool.Shared.Return(context);
+        }
+    }
+
+    /// <summary>
+    /// Runs one attempt under <see cref="RetryPolicyOptions.AttemptTimeout"/>. A timeout is reported as
+    /// <see cref="TimeoutException"/> (retryable under the full policy); the caller's own cancellation
+    /// propagates unchanged.
+    /// </summary>
+    private async Task<HttpResponseMessage> SendAttemptAsync(HttpRequestMessage request, CancellationToken callerToken)
+    {
+        using var attempt = CancellationTokenSource.CreateLinkedTokenSource(callerToken);
+        attempt.CancelAfter(_options.AttemptTimeout);
+        try
+        {
+            return await base.SendAsync(request, attempt.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException ex) when (attempt.IsCancellationRequested && !callerToken.IsCancellationRequested)
+        {
+            throw new TimeoutException(
+                $"The Mailgun request attempt exceeded the attempt timeout of {_options.AttemptTimeout}.", ex);
         }
     }
 

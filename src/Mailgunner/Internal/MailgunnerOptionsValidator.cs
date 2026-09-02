@@ -58,6 +58,11 @@ internal sealed class MailgunnerOptionsValidator : IValidateOptions<MailgunnerOp
             {
                 failures.Add("The maximum single wait must be greater than or equal to the base delay (MailgunnerOptions.Retry.MaxSingleWait).");
             }
+
+            if (retry.AttemptTimeout <= System.TimeSpan.Zero)
+            {
+                failures.Add("The attempt timeout must be greater than zero (MailgunnerOptions.Retry.AttemptTimeout).");
+            }
         }
 
         return failures.Count > 0
