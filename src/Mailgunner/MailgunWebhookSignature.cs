@@ -8,8 +8,11 @@ namespace Mailgunner;
 /// configuration — use the Mailgun HTTP webhook signing key, not the sending key).
 /// </summary>
 /// <remarks>
-/// Verification answers only "was this signed by the holder of the signing key?". It performs no
-/// timestamp-freshness or token-reuse (replay) checks; those remain the consumer's responsibility.
+/// Verification answers only "was this signed by the holder of the signing key?". The 4-argument
+/// <see cref="Verify(string, string, string, string)"/> overload performs no timestamp-freshness
+/// check; use the <see cref="Verify(string, string, string, string, System.TimeSpan, System.TimeProvider)"/>
+/// overload to also reject a stale or future timestamp. Token-reuse (replay) checks remain the
+/// consumer's responsibility either way.
 /// </remarks>
 public static class MailgunWebhookSignature
 {
