@@ -1,12 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;netstandard2.0</TargetFrameworks>
+    <TargetFrameworks>net10.0;net8.0;netstandard2.0</TargetFrameworks>
     <IsPackable>true</IsPackable>
 
-    <!-- Validates the net8.0 and netstandard2.0 surfaces against each other on pack. After the first
+    <!-- Validates the net10.0, net8.0 and netstandard2.0 surfaces against each other on pack. After the first
          stable release add <PackageValidationBaselineVersion> to also catch breaking changes. -->
     <EnablePackageValidation>true</EnablePackageValidation>
+
+    <!-- Transitive pinning is on repository-wide (Directory.Packages.props), which is right for
+         the test projects but wrong here: it promotes any transitive that happens to have a
+         PackageVersion entry into a *direct* dependency, and for a packable project that means
+         publishing it in the nuspec. That is how Microsoft.Extensions.Configuration — a
+         PackageVersion added for the test project — ended up in the 0.1.0 package's net8.0
+         dependency group. A library's dependency list is part of its contract: to force a floor
+         on a transitive (e.g. a security bump), add an explicit PackageReference above instead. -->
+    <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
 
   <ItemGroup>

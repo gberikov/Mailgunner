@@ -33,6 +33,8 @@ jobs:
         # Pinned to a commit SHA (v4.3.1) for supply-chain integrity; Dependabot bumps it.
         uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
+          # The .NET 8 runtime for the net8.0 test leg; global.json pins the SDK used to build.
+          dotnet-version: 8.0.x
           global-json-file: global.json
 
       - name: Restore
@@ -56,7 +58,7 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
-      - name: Test (net8.0)
+      - name: Test (net10.0, net8.0)
         run: dotnet test tests/Mailgunner.Tests --configuration Release --no-build
 
       - name: Test (net48, netstandard2.0 asset)
