@@ -3,7 +3,7 @@ namespace Mailgunner;
 /// <summary>
 /// The closed set of Mailgun delivery events a domain webhook can be registered for. A webhook is keyed
 /// by exactly one of these event types and carries one or more callback URLs Mailgun invokes when the
-/// event occurs. (Mailgun's <c>accepted</c> event is intentionally not part of this set.)
+/// event occurs.
 /// </summary>
 public enum WebhookEventType
 {
@@ -27,4 +27,7 @@ public enum WebhookEventType
 
     /// <summary>The message temporarily failed (<c>temporary_fail</c>).</summary>
     TemporaryFail,
+
+    /// <summary>Mailgun accepted the message for delivery (<c>accepted</c>).</summary>
+    Accepted,
 }

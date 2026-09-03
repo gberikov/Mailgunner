@@ -13,7 +13,7 @@ public class WebhookGetTests
         var registration = await client.Webhooks.GetAsync(WebhookEventType.Opened);
 
         Assert.Equal(HttpMethod.Get, stub.LastMethod);
-        Assert.EndsWith($"/v3/{WebhookHarness.Domain}/webhooks/opened", stub.LastRequestUri!.AbsolutePath);
+        Assert.EndsWith($"/v3/domains/{WebhookHarness.Domain}/webhooks/opened", stub.LastRequestUri!.AbsolutePath);
         Assert.Equal(WebhookEventType.Opened, registration.EventType);
         Assert.Equal("https://a", Assert.Single(registration.Urls));
     }

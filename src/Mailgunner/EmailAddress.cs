@@ -1,3 +1,5 @@
+using Mailgunner.Internal;
+
 namespace Mailgunner;
 
 /// <summary>
@@ -5,38 +7,74 @@ namespace Mailgunner;
 /// <see cref="MailgunMessage"/>. A bare address string converts implicitly to an
 /// <see cref="EmailAddress"/>.
 /// </summary>
-public readonly struct EmailAddress : System.IEquatable<EmailAddress>
+public readonly struct EmailAddress : IEquatable<EmailAddress>
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="EmailAddress"/> struct.
     /// </summary>
     /// <param name="address">The email address. Required, non-empty.</param>
     /// <param name="displayName">The optional display name.</param>
-    /// <exception cref="System.ArgumentException">
-    /// <paramref name="address"/> is null, empty, or whitespace, or either argument contains a control
-    /// character (for example a carriage return or line feed, which could otherwise inject headers).
+    /// <exception cref="ArgumentException">
+    /// <paramref name="address"/> is null, empty, or whitespace; contains a control character (for
+    /// example a carriage return or line feed, which could otherwise inject headers); contains a
+    /// list/delimiter character (<c>, ; &lt; &gt; " ( ) [ ] \</c>) or whitespace; or is not a bare
+    /// <c>local@domain</c> value (exactly one <c>@</c>, not at either end). <paramref name="displayName"/>
+    /// contains a control character.
     /// </exception>
     public EmailAddress(string address, string? displayName = null)
     {
         if (string.IsNullOrWhiteSpace(address))
         {
-            throw new System.ArgumentException("An email address is required.", nameof(address));
+            throw new ArgumentException("An email address is required.", nameof(address));
         }
 
-        if (ContainsControlCharacter(address))
+        if (TextGuards.ContainsControlCharacter(address))
         {
-            throw new System.ArgumentException(
+            throw new ArgumentException(
                 "An email address must not contain control characters.", nameof(address));
         }
 
-        if (displayName is not null && ContainsControlCharacter(displayName))
+        if (!IsPlainAddrSpec(address))
         {
-            throw new System.ArgumentException(
+            throw new ArgumentException(
+                "An email address must be a bare addr-spec: exactly one '@' with a non-empty local part and domain, "
+                + "and no whitespace, quotes, brackets, parentheses, backslashes, commas, or semicolons.",
+                nameof(address));
+        }
+
+        if (displayName is not null && TextGuards.ContainsControlCharacter(displayName))
+        {
+            throw new ArgumentException(
                 "A display name must not contain control characters.", nameof(displayName));
         }
 
         Address = address;
         DisplayName = displayName;
+    }
+
+    private static readonly char[] DelimiterCharacters = { ',', ';', '<', '>', '"', '(', ')', '[', ']', '\\' };
+
+    /// <summary>
+    /// Accepts only a bare <c>local@domain</c> form so a single value can never be parsed by the service
+    /// as an address list, a display-name form, or a comment. Deliberately not a full RFC 5322 validator.
+    /// </summary>
+    private static bool IsPlainAddrSpec(string address)
+    {
+        if (address.IndexOfAny(DelimiterCharacters) >= 0)
+        {
+            return false;
+        }
+
+        foreach (var c in address)
+        {
+            if (char.IsWhiteSpace(c))
+            {
+                return false;
+            }
+        }
+
+        var at = address.IndexOf('@');
+        return at > 0 && at < address.Length - 1 && address.IndexOf('@', at + 1) < 0;
     }
 
     /// <summary>
@@ -131,27 +169,14 @@ public readonly struct EmailAddress : System.IEquatable<EmailAddress>
         return false;
     }
 
-    private static bool ContainsControlCharacter(string value)
-    {
-        foreach (var c in value)
-        {
-            if (char.IsControl(c))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>
     /// Determines whether this address equals another by value.
     /// </summary>
     /// <param name="other">The address to compare with.</param>
     /// <returns><see langword="true"/> when the addresses are equal; otherwise <see langword="false"/>.</returns>
     public bool Equals(EmailAddress other) =>
-        string.Equals(Address, other.Address, System.StringComparison.Ordinal)
-        && string.Equals(DisplayName, other.DisplayName, System.StringComparison.Ordinal);
+        string.Equals(Address, other.Address, StringComparison.Ordinal)
+        && string.Equals(DisplayName, other.DisplayName, StringComparison.Ordinal);
 
     /// <summary>
     /// Determines whether this address equals another object by value.
@@ -169,8 +194,8 @@ public readonly struct EmailAddress : System.IEquatable<EmailAddress>
         unchecked
         {
             var hash = 17;
-            hash = (hash * 31) + (Address is null ? 0 : System.StringComparer.Ordinal.GetHashCode(Address));
-            hash = (hash * 31) + (DisplayName is null ? 0 : System.StringComparer.Ordinal.GetHashCode(DisplayName));
+            hash = (hash * 31) + (Address is null ? 0 : StringComparer.Ordinal.GetHashCode(Address));
+            hash = (hash * 31) + (DisplayName is null ? 0 : StringComparer.Ordinal.GetHashCode(DisplayName));
             return hash;
         }
     }

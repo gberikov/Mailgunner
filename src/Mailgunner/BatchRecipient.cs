@@ -27,6 +27,6 @@ public sealed class BatchRecipient
     /// independent of the global <see cref="MailgunBatchMessage.TemplateVariables"/>. An empty map is
     /// valid and serializes to <c>{}</c>.
     /// </summary>
-    public System.Collections.Generic.IDictionary<string, object?> Variables { get; }
-        = new System.Collections.Generic.Dictionary<string, object?>();
+    public IDictionary<string, object?> Variables { get; }
+        = new Dictionary<string, object?>();
 }

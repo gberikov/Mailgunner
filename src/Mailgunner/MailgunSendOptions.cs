@@ -19,7 +19,7 @@ public sealed class MailgunSendOptions
     /// repeated <c>o:tag</c> field, in order; the library does not de-duplicate. Blank or
     /// whitespace-only entries are skipped.
     /// </summary>
-    public System.Collections.Generic.IList<string> Tags { get; } = new System.Collections.Generic.List<string>();
+    public IList<string> Tags { get; } = new List<string>();
 
     /// <summary>
     /// Gets or sets a value indicating whether the send runs in test mode (the pipeline is exercised
@@ -46,26 +46,26 @@ public sealed class MailgunSendOptions
     /// <c>Thu, 25 Jun 2026 14:00:00 +0000</c>), never a named zone; when <see langword="null"/>, the
     /// field is omitted.
     /// </summary>
-    public System.DateTimeOffset? DeliveryTime { get; set; }
+    public DateTimeOffset? DeliveryTime { get; set; }
 
     /// <summary>
     /// Gets the arbitrary custom message headers. Each entry is emitted as <c>h:&lt;name&gt;</c> carrying
-    /// the supplied value. Names are unique (re-assigning a name replaces its value); the relative
-    /// emission order is immaterial. A blank name is rejected with an <see cref="System.ArgumentException"/>
-    /// when the request is built.
+    /// the supplied value. Names are unique and, like mail header names, compared case-insensitively
+    /// (re-assigning a name in any casing replaces its value); the relative emission order is immaterial.
+    /// A blank name is rejected with an <see cref="ArgumentException"/> when the request is built.
     /// </summary>
-    public System.Collections.Generic.IDictionary<string, string> CustomHeaders { get; }
-        = new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.Ordinal);
+    public IDictionary<string, string> CustomHeaders { get; }
+        = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Gets the arbitrary custom variables that travel with the message and surface in later
     /// tracking/webhook data. Each entry is emitted as <c>v:&lt;name&gt;</c> carrying the supplied string
     /// value verbatim (the library does not serialize structured objects; pre-encode any structured
     /// data into the string). Names are unique; emission order is immaterial. A blank name is rejected
-    /// with an <see cref="System.ArgumentException"/> when the request is built.
+    /// with an <see cref="ArgumentException"/> when the request is built.
     /// </summary>
-    public System.Collections.Generic.IDictionary<string, string> CustomVariables { get; }
-        = new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.Ordinal);
+    public IDictionary<string, string> CustomVariables { get; }
+        = new Dictionary<string, string>(StringComparer.Ordinal);
 
     /// <summary>
     /// Gets or sets the opt-in unsubscribe target emitted as the RFC 8058 / RFC 2369
@@ -74,8 +74,59 @@ public sealed class MailgunSendOptions
     /// header is emitted and transactional sends are unaffected. The <c>Url</c> form must be <c>https</c>;
     /// one-click requires an <c>https</c> <c>Url</c>. Setting this <em>and</em> also supplying a
     /// <c>List-Unsubscribe</c> / <c>List-Unsubscribe-Post</c> entry in <see cref="CustomHeaders"/> (matched
-    /// case-insensitively) is a conflict that throws an <see cref="System.ArgumentException"/> when the
+    /// case-insensitively) is a conflict that throws an <see cref="ArgumentException"/> when the
     /// request is built; use exactly one mechanism.
     /// </summary>
     public ListUnsubscribeOptions? ListUnsubscribe { get; set; }
+
+    /// <summary>Gets or sets whether TLS is required for delivery (<c>o:require-tls</c>); null omits the field.</summary>
+    public bool? RequireTls { get; set; }
+
+    /// <summary>Gets or sets whether certificate/hostname verification is skipped (<c>o:skip-verification</c>); null omits the field.</summary>
+    public bool? SkipVerification { get; set; }
+
+    /// <summary>Gets or sets the master tracking toggle (<c>o:tracking</c>) covering opens and clicks; null omits the field.</summary>
+    public bool? Tracking { get; set; }
+
+    /// <summary>Gets or sets the dedicated sending IP to use (<c>o:sending-ip</c>); null/blank omits the field.</summary>
+    public string? SendingIp { get; set; }
+
+    /// <summary>Gets or sets the IP pool to send from (<c>o:sending-ip-pool</c>); null/blank omits the field.</summary>
+    public string? SendingIpPool { get; set; }
+
+    /// <summary>
+    /// Gets or sets the recipient-local delivery time (<c>o:time-zone-localize</c>, e.g. <c>"09:00"</c> or
+    /// <c>"9:00AM"</c>) applied on top of <see cref="DeliveryTime"/>; null/blank omits the field.
+    /// </summary>
+    public string? TimeZoneLocalize { get; set; }
+
+    /// <summary>Gets or sets whether the message is DKIM-signed (<c>o:dkim</c>); null omits the field (account default).</summary>
+    public bool? Dkim { get; set; }
+
+    /// <summary>Gets or sets a second domain key to sign the message with (<c>o:secondary-dkim</c>); null/blank omits the field.</summary>
+    public string? SecondaryDkim { get; set; }
+
+    /// <summary>Gets or sets the public alias of the <see cref="SecondaryDkim"/> domain key (<c>o:secondary-dkim-public</c>); null/blank omits the field.</summary>
+    public string? SecondaryDkimPublic { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum window Mailgun may take to deliver the message (<c>o:deliver-within</c>,
+    /// e.g. <c>"1h30m"</c>); null/blank omits the field.
+    /// </summary>
+    public string? DeliverWithin { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Send Time Optimization window (<c>o:deliverytime-optimize-period</c>, <c>24h</c> to
+    /// <c>72h</c> in <c>[0-9]+h</c> form); null/blank omits the field.
+    /// </summary>
+    public string? DeliveryTimeOptimizePeriod { get; set; }
+
+    /// <summary>Gets or sets whether the open-tracking pixel is placed at the top of the body (<c>o:tracking-pixel-location-top</c>); null omits the field.</summary>
+    public bool? TrackingPixelLocationTop { get; set; }
+
+    /// <summary>Gets or sets a URL that receives a copy of the message by HTTP POST (<c>o:archive-to</c>); null/blank omits the field.</summary>
+    public string? ArchiveTo { get; set; }
+
+    /// <summary>Gets or sets a comma-separated list of <c>X-Mailgun-*</c> headers to strip from the delivered message (<c>o:suppress-headers</c>); null/blank omits the field.</summary>
+    public string? SuppressHeaders { get; set; }
 }

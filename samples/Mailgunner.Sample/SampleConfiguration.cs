@@ -147,12 +147,19 @@ public static class SampleConfiguration
                 $"a valid hosting region: Us or Eu (got \"{regionRaw}\"; must match the domain)"));
         }
 
-        var recipients = ReadRecipients(configuration);
-        if (recipients.Count == 0)
+        var recipients = ReadRecipients(configuration, missing);
+        if (recipients.Count == 0 && !missing.Any(m => m.Key.StartsWith("Mailgun:Recipients", StringComparison.Ordinal)))
         {
             missing.Add(Missing(
                 "Mailgun:Recipients:0:Address",
                 "at least one authorized sandbox recipient address"));
+        }
+
+        var fromRaw = Trimmed(configuration["Mailgun:From"]);
+        EmailAddress? from = null;
+        if (fromRaw is not null && !TryParseAddress(fromRaw, out from))
+        {
+            missing.Add(Missing("Mailgun:From", $"{AddressForm} (got \"{fromRaw}\")"));
         }
 
         if (missing.Count > 0)
@@ -161,19 +168,56 @@ public static class SampleConfiguration
         }
 
         var template = Trimmed(configuration["Mailgun:Template"]) ?? "conference-invitation";
-        var fromRaw = Trimmed(configuration["Mailgun:From"]);
-        var from = fromRaw is not null ? new EmailAddress(fromRaw) : new EmailAddress($"postmaster@{domain}");
 
         return SampleConfigurationResult.Resolved(
-            new SampleSettings(domain!, sendingKey!, region, from, template, recipients));
+            new SampleSettings(
+                domain!, sendingKey!, region, from ?? new EmailAddress($"postmaster@{domain}"), template, recipients));
     }
 
-    private static List<EmailAddress> ReadRecipients(IConfiguration configuration) =>
-        configuration.GetSection("Mailgun:Recipients").GetChildren()
-            .Select(child => Trimmed(child["Address"]))
-            .Where(address => address is not null)
-            .Select(address => new EmailAddress(address!))
-            .ToList();
+    private const string AddressForm = "a bare address such as user@example.com (a display name is not accepted)";
+
+    private static List<EmailAddress> ReadRecipients(IConfiguration configuration, List<MissingSetting> missing)
+    {
+        var recipients = new List<EmailAddress>();
+        foreach (var child in configuration.GetSection("Mailgun:Recipients").GetChildren())
+        {
+            var raw = Trimmed(child["Address"]);
+            if (raw is null)
+            {
+                continue;
+            }
+
+            if (TryParseAddress(raw, out var address))
+            {
+                recipients.Add(address!.Value);
+            }
+            else
+            {
+                missing.Add(Missing($"Mailgun:Recipients:{child.Key}:Address", $"{AddressForm} (got \"{raw}\")"));
+            }
+        }
+
+        return recipients;
+    }
+
+    /// <summary>
+    /// The library's <see cref="EmailAddress"/> accepts only a bare <c>local@domain</c> value, so a setting
+    /// in <c>Name &lt;addr&gt;</c> form is reported as a missing/invalid setting rather than surfacing
+    /// as an unhandled <see cref="ArgumentException"/>.
+    /// </summary>
+    private static bool TryParseAddress(string raw, out EmailAddress? address)
+    {
+        try
+        {
+            address = new EmailAddress(raw);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            address = null;
+            return false;
+        }
+    }
 
     private static bool TryParseRegion(string value, out MailgunRegion region) =>
         Enum.TryParse(value, ignoreCase: true, out region) && Enum.IsDefined(region);

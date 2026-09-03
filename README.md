@@ -3,15 +3,15 @@
 Lightweight, modern, unofficial .NET client for the [Mailgun](https://www.mailgun.com/)
 (Sinch) REST API, focused on bulk personalized email delivery.
 
-> **Status:** `0.1.0` — first release. DI registration, single & templated sends, personalized
-> batch sends, send options, suppression lists, webhook signature verification, and automatic
-> retry/backoff are all in place — with the copy-paste [Quickstart](#quickstart) and runnable
-> [sample](#run-the-sample) below.
+> **Status:** `0.1.0` — first release. Sending (single, templated, personalized batches), suppression
+> lists, domain webhook management, webhook signature verification, named clients, one-click
+> List-Unsubscribe, stream attachments and a safe-by-default send retry mode. See the
+> [changelog](https://github.com/gberikov/Mailgunner/blob/master/CHANGELOG.md).
 
 ## Highlights
 
 - **Modern & slim** — multi-targets `net8.0` and `netstandard2.0`; minimal dependency
-  footprint (`System.Text.Json`, `Polly`, `Microsoft.Extensions.Http`).
+  footprint (`System.Text.Json`, `Polly.Core`, `Microsoft.Extensions.Http`).
 - **Resilient HTTP** — built around typed `HttpClient` via `IHttpClientFactory` with Polly
   transient-fault handling (automatic retry with backoff, on by default).
 - **Documented & strict** — nullable reference types, XML docs, and warnings-as-errors.
@@ -23,8 +23,7 @@ Lightweight, modern, unofficial .NET client for the [Mailgun](https://www.mailgu
 dotnet add package Mailgunner
 ```
 
-> Published to NuGet on tagging `v0.1.0`; until then, build from source (see
-> [Building from source](#building-from-source)).
+> Releases are published on `v*` tags; see [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Quickstart
 
@@ -79,7 +78,8 @@ foreach (SendResult result in results)
     Console.WriteLine($"sent: id={result.Id} status={result.Message}");
 ```
 
-Why the bridge (step 3)? The library's batch send is **stored-template-only**: it emits the global
+Why the bridge (step 3)? A batch can use a stored template (this example) **or** inline `Text`/`Html`
+with `%recipient.var%` placeholders. This example's stored-template path emits the global
 `t:variables` (which a Handlebars template reads as `{{var}}`) and a per-recipient
 `recipient-variables` object (addressed as `%recipient.var%`). Mapping each `{{var}}` to its
 `%recipient.var%` token in `TemplateVariables` is what makes Mailgun render a **distinct** value per
@@ -206,8 +206,10 @@ the `Attachments` and `InlineFiles` collections. Every knob is optional; omittin
 Mailgun account default in effect.
 
 - **Attachments & inline files** — add `MailgunFile(fileName, content, contentType?)` to `Attachments`
-  (downloadable) or `InlineFiles` (embeddable, referenced from HTML by content id). When the content
-  type is omitted it defaults to `application/octet-stream`.
+  (downloadable) or `InlineFiles` (embeddable, referenced from HTML by content id), or
+  `MailgunFile(fileName, () => File.OpenRead(path), contentType)` to stream large files without
+  buffering; the factory is called once per request. When the content type is omitted it defaults to
+  `application/octet-stream`.
 - **Tags** — `Options.Tags` may carry several values; all are sent (not de-duplicated).
 - **Test mode** — `Options.TestMode = true` exercises the pipeline without delivering.
 - **Tracking** — `Options.TrackingOpens` (on/off) and `Options.TrackingClicks`
@@ -215,8 +217,14 @@ Mailgun account default in effect.
 - **Scheduled delivery** — `Options.DeliveryTime` (a `DateTimeOffset`) is sent as an **RFC 2822**
   date-time with a **numeric** timezone offset (for example `Thu, 25 Jun 2026 14:00:00 +0000`), never
   a named zone.
-- **Custom headers & variables** — `Options.CustomHeaders` (`h:` prefix) and `Options.CustomVariables`
-  (`v:` prefix, string values).
+- **Custom headers & variables** — `Options.CustomHeaders` (`h:` prefix; names are case-insensitive, like
+  mail headers) and `Options.CustomVariables` (`v:` prefix, string values; Mailgun truncates variables
+  above 4KB).
+- **Reply-To** — `message.ReplyTo = "support@example.com"` emits the `Reply-To` header.
+- **Delivery controls** — `RequireTls`, `SkipVerification`, `Tracking` (master toggle),
+  `TrackingPixelLocationTop`, `SendingIp`, `SendingIpPool`, `DeliverWithin`, `DeliveryTimeOptimizePeriod`,
+  `TimeZoneLocalize`, `Dkim`, `SecondaryDkim`/`SecondaryDkimPublic`, `ArchiveTo`, `SuppressHeaders`;
+  `MailgunMessage.AmpHtml` for an AMP part.
 
 > **16KB limit.** Mailgun caps the **combined** size of the option (`o:`), custom-header (`h:`),
 > custom-variable (`v:`), and template (`t:`) parameters at **16KB per request**. Mailgunner does not
@@ -234,6 +242,9 @@ services.AddMailgunner("mg.example.com", sendingKey, MailgunRegion.Us);
 // Retry-After is honored; a non-429 4xx still surfaces immediately.
 ```
 
+- **Sends are special** — `POST /messages` is not idempotent, so by default a send is retried **only on 429**
+  (`Retry.SendRetryMode = SendRetryMode.Safe`). Set `SendRetryMode.Full` to retry sends on 408/5xx and transport
+  faults too, accepting the risk of duplicate delivery. Suppression and webhook requests always use the full policy.
 - **Retried** — HTTP `429`, `408`, and any `5xx`, plus transport-level faults with no response
   (timeout, connection reset/refused, DNS failure).
 - **Never retried** — a non-`429` `4xx` (for example `400`/`401`/`403`/`404`) surfaces immediately as
@@ -264,8 +275,15 @@ services.AddMailgunner(o =>
     o.Retry.BaseDelay = TimeSpan.FromMilliseconds(500); // starting backoff (> 0)
     o.Retry.MaxSingleWait = TimeSpan.FromSeconds(30);   // mandatory cap on any single wait (>= BaseDelay)
     o.Retry.UseJitter = true;                           // bounded additive jitter
+    o.Retry.SendRetryMode = SendRetryMode.Safe;         // Safe (429 only) or Full
+    o.Retry.AttemptTimeout = TimeSpan.FromSeconds(100);  // cap on a single attempt, up to the response headers
 });
 ```
+
+The typed `HttpClient.Timeout` is set to the worst case over every attempt and wait,
+`(MaxRetryAttempts + 1) × AttemptTimeout + MaxRetryAttempts × MaxSingleWait` (490 s with the defaults), so a
+stalled response body, which `HttpClient` reads outside the per-attempt timeout, can never hang a caller
+that passed no `CancellationToken`.
 
 ## Suppression lists
 
@@ -305,10 +323,31 @@ await client.Suppressions.Complaints.ClearAsync(ct);                            
 - An optional **page size** is applied only to the first request; subsequent pages follow the service's
   next pointer verbatim.
 - **`AddAsync`** sends the address plus that list's optional fields (a bounce's `Code`/`Error`, an
-  unsubscribe's `Tags`) as JSON. **`RemoveAsync`** deletes a single address; **`ClearAsync`** deletes
-  every entry on the list.
+  unsubscribe's `Tags`) as JSON. **`AddRangeAsync`** sends many entries as a JSON array (chunked by 1000
+  per request). **`RemoveAsync`** deletes a single address; **`ClearAsync`** deletes every entry on the
+  list.
 - Any non-success response — including a not-found `GetAsync`/`RemoveAsync` — surfaces a
   `MailgunnerException` carrying the HTTP status code and raw response body.
+
+## Domain webhooks
+
+`client.Webhooks` manages the callback URLs Mailgun invokes for each delivery event of the domain
+(Mailgun's v3 domain-webhook endpoints). A registration is keyed by one `WebhookEventType` (`Accepted`,
+`Delivered`, `Opened`, `Clicked`, `Unsubscribed`, `Complained`, `PermanentFail`, `TemporaryFail`) and
+carries up to three absolute `http(s)` URLs:
+
+```csharp
+await client.Webhooks.CreateAsync(WebhookEventType.Delivered, new[] { "https://app.example.com/hooks/mailgun" }, ct);
+await client.Webhooks.CreateAsync(new[] { WebhookEventType.Complained, WebhookEventType.Unsubscribed }, "https://app.example.com/hooks/mailgun", ct);
+IReadOnlyList<WebhookRegistration> all = await client.Webhooks.ListAsync(ct);
+WebhookRegistration one = await client.Webhooks.GetAsync(WebhookEventType.Delivered, ct); // 404 → MailgunnerException
+await client.Webhooks.UpdateAsync(WebhookEventType.Delivered, new[] { "https://app.example.com/hooks/v2" }, ct);
+await client.Webhooks.DeleteAsync(WebhookEventType.Delivered, ct);
+```
+
+The multi-event overload issues one create per distinct event type, in order, and is fail-fast with no
+rollback. A URL that is not an absolute `http`/`https` URL is rejected with `ArgumentException` before any
+request.
 
 ## Webhook signature verification
 
@@ -341,9 +380,37 @@ if (!authentic)
   `ArgumentException` (a configuration error). Every malformed or missing webhook-supplied field — a
   `null` timestamp/token, or a `null`, empty, wrong-length, or non-hexadecimal signature — returns
   `false` rather than throwing.
-- Verification answers only "was this signed with the signing key?". **Replay protection** and
-  **timestamp-freshness** checks (rejecting old or already-seen webhooks) are your responsibility and
-  are intentionally out of scope.
+- Verification answers only "was this signed with the signing key?". Pass `maxAge` (e.g.
+  `TimeSpan.FromMinutes(5)`) to the second overload to also reject stale or future timestamps;
+  token-reuse tracking remains yours:
+
+```csharp
+bool authentic = MailgunWebhookSignature.Verify(
+    signingKey: configuration["Mailgun:WebhookSigningKey"]!,
+    timestamp:  timestamp,
+    token:      token,
+    signature:  signature,
+    maxAge:     TimeSpan.FromMinutes(5));
+```
+
+## Limitations & notes
+
+- **No trimming/AOT guarantee.** Template and recipient variables (`t:variables`, `recipient-variables`) are
+  serialized with reflection-based `System.Text.Json`; in a Native AOT app that path throws at runtime. The
+  suppression and webhook DTOs use source generation and are unaffected.
+- **Duplicate delivery vs. retries.** A send is retried only on HTTP 429 by default (`SendRetryMode.Safe`); with
+  `SendRetryMode.Full` a lost response can lead to the same message being delivered twice.
+- **Timeouts.** Each attempt is bounded by `Retry.AttemptTimeout` up to the response headers; the typed
+  `HttpClient.Timeout` bounds the whole call, body reads included, at
+  `(MaxRetryAttempts + 1) × AttemptTimeout + MaxRetryAttempts × MaxSingleWait`.
+- **Transport failures are not `MailgunnerException`.** A response, success or failure, always maps to a
+  result or a `MailgunnerException`. When no response is obtained, the underlying exception surfaces after
+  the retry budget: `HttpRequestException` (connection/DNS), `TimeoutException` (an attempt exceeded
+  `AttemptTimeout`), or `TaskCanceledException` (the overall `HttpClient.Timeout` elapsed).
+- **Batch failures.** `SendBatchAsync` is fail-fast; `MailgunnerException.AcceptedResults` / `FailedChunkIndex`
+  tell you which chunks were already accepted so you can resume from the failed one.
+- **16KB parameter cap** on `o:`/`h:`/`v:`/`t:` fields is not enforced client-side (see
+  [Send options & limits](#send-options--limits)).
 
 ## Building from source
 
@@ -358,12 +425,26 @@ dotnet test Mailgunner.slnx -c Release
 
 Tests run fully offline — no network access or Mailgun credentials are required.
 
+Live integration tests (`tests/Mailgunner.IntegrationTests`) run only when the `Mailgun__*`
+variables from the [sample section](#run-the-sample) are set; without them every test reports
+`Skipped` and the suite stays green. They are not part of `Mailgunner.slnx`'s CI/release runs —
+CI and the release workflow invoke `dotnet test` scoped to the offline projects only — so opting
+in is a manual, local `dotnet test tests/Mailgunner.IntegrationTests` with the environment
+variables exported. Sends use `MailgunSendOptions.TestMode`, so nothing is actually delivered,
+and every test removes whatever suppression entry or webhook it created, even when it fails
+partway; the webhook test restores (rather than deletes) any registration that already existed
+for the event type it exercises, since a webhook is a single whole-domain registration per event
+type with no way to namespace it — run these against a sandbox/test domain, not one serving real
+traffic on that event type.
+
 ## Project layout
 
 | Path | Purpose |
 |------|---------|
 | `src/Mailgunner/` | The publishable library. |
 | `tests/Mailgunner.Tests/` | Offline xUnit test suite. |
+| `tests/Mailgunner.NetFxTests/` | net48 tests exercising the netstandard2.0 build (Windows CI leg). |
+| `tests/Mailgunner.IntegrationTests/` | Opt-in live tests against a real Mailgun account (see above). |
 | `Directory.Build.props` | Shared build/quality/package settings. |
 | `Directory.Packages.props` | Central Package Management (pinned versions). |
 | `.editorconfig` | Build-enforced style & analyzer rules. |

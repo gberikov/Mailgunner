@@ -61,6 +61,29 @@ public class WebhookErrorTests
     }
 
     [Fact]
+    public async Task List_with_a_malformed_success_body_surfaces_the_typed_error()
+    {
+        var (client, _) = WebhookHarness.BuildClient(HttpStatusCode.OK, "not json");
+
+        var ex = await Assert.ThrowsAsync<MailgunnerException>(() => client.Webhooks.ListAsync());
+
+        Assert.Equal(200, ex.StatusCode);
+        Assert.Equal("not json", ex.ResponseBody);
+    }
+
+    [Fact]
+    public async Task Get_with_a_malformed_success_body_surfaces_the_typed_error()
+    {
+        var (client, _) = WebhookHarness.BuildClient(HttpStatusCode.OK, "not json");
+
+        var ex = await Assert.ThrowsAsync<MailgunnerException>(
+            () => client.Webhooks.GetAsync(WebhookEventType.Delivered));
+
+        Assert.Equal(200, ex.StatusCode);
+        Assert.Equal("not json", ex.ResponseBody);
+    }
+
+    [Fact]
     public async Task Delete_surfaces_status_and_raw_body()
     {
         var (client, _) = WebhookHarness.BuildClient(HttpStatusCode.BadRequest, Body);

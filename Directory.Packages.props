@@ -19,30 +19,39 @@
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <!-- Test-only: tests/Mailgunner.IntegrationTests uses [SkippableFact]/Skip.If so an unconfigured
+         run reports Skipped rather than a vacuously "passed" test with no assertions. -->
+    <PackageVersion Include="Xunit.SkippableFact" Version="1.5.85" />
     <PackageVersion Include="coverlet.collector" Version="10.0.1" />
     <!-- Test-only: builds an in-memory IConfiguration to exercise the named config-section overload. -->
-    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
+    <!-- Test-only: net48 reference assemblies, so tests/Mailgunner.NetFxTests compiles on a runner
+         (e.g. Linux) that has no .NET Framework 4.8 targeting pack installed. -->
+    <PackageVersion Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" />
   </ItemGroup>
 
   <!--
     Permitted runtime dependency catalog (constitution Principle I).
     Pinned and ready for functional features; not referenced by the scaffold library yet.
+    Library floors stay on the 8.0.x train so net8.0 consumers are not forced onto newer Extensions packages.
   -->
   <ItemGroup>
-    <PackageVersion Include="System.Text.Json" Version="10.0.9" />
-    <PackageVersion Include="Polly" Version="8.7.0" />
-    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.9" />
-    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.9" />
+    <PackageVersion Include="System.Text.Json" Version="8.0.5" />
+    <PackageVersion Include="Polly.Core" Version="8.7.0" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="8.0.1" />
+    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
+    <!-- Required by the public API surface on netstandard2.0, not merely chosen: TimeProvider is
+         in-box on net8.0 but on netstandard2.0 it is defined by this package, which otherwise only
+         arrives transitively (and unpinned) through Polly.Core. See Mailgunner.csproj. -->
+    <PackageVersion Include="Microsoft.Bcl.TimeProvider" Version="8.0.0" />
   </ItemGroup>
 
   <!--
     Sample-only dependencies (samples/Mailgunner.Sample). NOT part of the publishable
     Mailgunner package or its dependency set (constitution Principle I scopes to the library).
-    Pinned to the same Microsoft.Extensions.* 10.0.x train as Microsoft.Extensions.Http above,
-    which ships net8.0 assets so the sample's net8.0 target restores cleanly.
   -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
   </ItemGroup>
 
 </Project>

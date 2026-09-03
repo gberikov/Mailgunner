@@ -28,5 +28,5 @@ public sealed class Bounce
     /// Gets the instant the entry was recorded, or <see langword="null"/> when absent or unparseable.
     /// Server-populated on read; ignored on add.
     /// </summary>
-    public System.DateTimeOffset? CreatedAt { get; init; }
+    public DateTimeOffset? CreatedAt { get; init; }
 }

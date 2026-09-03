@@ -6,7 +6,7 @@ namespace Mailgunner;
 /// via <see cref="MailgunSendOptions.ListUnsubscribe"/>. At least one of <see cref="Url"/> or
 /// <see cref="MailtoAddress"/> must be present; supplying neither, a non-<c>https</c> <see cref="Url"/>, a
 /// control character / line break in the <see cref="Url"/>, or <see cref="OneClick"/> without an
-/// <c>https</c> <see cref="Url"/> is rejected with an <see cref="System.ArgumentException"/> when the
+/// <c>https</c> <see cref="Url"/> is rejected with an <see cref="ArgumentException"/> when the
 /// request is built (before any network call).
 /// </summary>
 public sealed class ListUnsubscribeOptions

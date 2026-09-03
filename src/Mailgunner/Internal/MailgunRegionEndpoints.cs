@@ -10,11 +10,11 @@ internal static class MailgunRegionEndpoints
     /// </summary>
     /// <param name="region">The configured region.</param>
     /// <returns>The base URL (with a trailing slash) for the region.</returns>
-    /// <exception cref="System.ArgumentOutOfRangeException">The region is not a known value.</exception>
-    public static System.Uri ForRegion(MailgunRegion region) => region switch
+    /// <exception cref="ArgumentOutOfRangeException">The region is not a known value.</exception>
+    public static Uri ForRegion(MailgunRegion region) => region switch
     {
-        MailgunRegion.Us => new System.Uri("https://api.mailgun.net/"),
-        MailgunRegion.Eu => new System.Uri("https://api.eu.mailgun.net/"),
-        _ => throw new System.ArgumentOutOfRangeException(nameof(region), region, "Unknown Mailgun region."),
+        MailgunRegion.Us => new Uri("https://api.mailgun.net/"),
+        MailgunRegion.Eu => new Uri("https://api.eu.mailgun.net/"),
+        _ => throw new ArgumentOutOfRangeException(nameof(region), region, "Unknown Mailgun region."),
     };
 }

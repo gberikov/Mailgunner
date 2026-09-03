@@ -16,18 +16,34 @@ namespace Mailgunner;
     "Design",
     "CA1032:Implement standard exception constructors",
     Justification = "This exception must always carry an HTTP status code and response body; the parameterless and message-only constructors would permit an invalid instance.")]
-public sealed class MailgunnerException : System.Exception
+public sealed class MailgunnerException : Exception
 {
-    /// <summary>
-    /// Initializes a new instance of the <see cref="MailgunnerException"/> class.
-    /// </summary>
+    private const int MaxServiceMessageLength = 200;
+
+    /// <summary>Initializes a new instance for a single failed request.</summary>
     /// <param name="statusCode">The HTTP status code of the response.</param>
     /// <param name="responseBody">The raw response body (never null; empty when the response had no body).</param>
     public MailgunnerException(int statusCode, string responseBody)
-        : base(BuildMessage(statusCode))
+        : this(statusCode, responseBody, null, Array.Empty<SendResult>())
+    {
+    }
+
+    /// <summary>Initializes a new instance for a batch chunk that failed after earlier chunks were accepted.</summary>
+    /// <param name="statusCode">The HTTP status code of the failing chunk's response.</param>
+    /// <param name="responseBody">The raw response body of the failing chunk.</param>
+    /// <param name="failedChunkIndex">The zero-based index of the chunk that failed, or <see langword="null"/> outside a batch.</param>
+    /// <param name="acceptedResults">The results of the chunks accepted before the failure, in order; empty outside a batch.</param>
+    public MailgunnerException(
+        int statusCode,
+        string responseBody,
+        int? failedChunkIndex,
+        IReadOnlyList<SendResult> acceptedResults)
+        : base(BuildMessage(statusCode, responseBody))
     {
         StatusCode = statusCode;
         ResponseBody = responseBody;
+        FailedChunkIndex = failedChunkIndex;
+        AcceptedResults = acceptedResults ?? Array.Empty<SendResult>();
     }
 
     /// <summary>
@@ -40,6 +56,60 @@ public sealed class MailgunnerException : System.Exception
     /// </summary>
     public string ResponseBody { get; }
 
-    private static string BuildMessage(int statusCode) =>
-        $"The Mailgun request did not yield a usable result (HTTP status {statusCode}).";
+    /// <summary>
+    /// Gets the zero-based index of the batch chunk that failed, or <see langword="null"/> when the error
+    /// did not occur inside <see cref="IMailgunnerClient.SendBatchAsync"/>.
+    /// </summary>
+    public int? FailedChunkIndex { get; }
+
+    /// <summary>
+    /// Gets the results of the batch chunks Mailgun accepted before the failure (chunks
+    /// <c>0..FailedChunkIndex-1</c>), so a caller can resume from the failed chunk. Empty outside a batch.
+    /// Those messages have been sent and are not rolled back.
+    /// </summary>
+    public IReadOnlyList<SendResult> AcceptedResults { get; }
+
+    private static string BuildMessage(int statusCode, string responseBody)
+    {
+        var serviceMessage = TryExtractServiceMessage(responseBody);
+        return serviceMessage is null
+            ? $"The Mailgun request did not yield a usable result (HTTP {statusCode})."
+            : $"The Mailgun request failed (HTTP {statusCode}): {serviceMessage}";
+    }
+
+    /// <summary>Reads the <c>message</c> string of a JSON object body; null for anything else.</summary>
+    private static string? TryExtractServiceMessage(string responseBody)
+    {
+        if (string.IsNullOrWhiteSpace(responseBody))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(responseBody);
+            if (document.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object
+                || !document.RootElement.TryGetProperty("message", out var message)
+                || message.ValueKind != System.Text.Json.JsonValueKind.String)
+            {
+                return null;
+            }
+
+            var text = message.GetString()!;
+            if (text.Length <= MaxServiceMessageLength)
+            {
+                return text;
+            }
+
+#if NET8_0_OR_GREATER
+            return string.Concat(text.AsSpan(0, MaxServiceMessageLength), "…");
+#else
+            return text.Substring(0, MaxServiceMessageLength) + "…";
+#endif
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
 }

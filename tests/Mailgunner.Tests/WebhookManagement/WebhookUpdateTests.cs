@@ -14,7 +14,7 @@ public class WebhookUpdateTests
         var registration = await client.Webhooks.UpdateAsync(WebhookEventType.Delivered, urls);
 
         Assert.Equal(HttpMethod.Put, stub.LastMethod);
-        Assert.EndsWith($"/v3/{WebhookHarness.Domain}/webhooks/delivered", stub.LastRequestUri!.AbsolutePath);
+        Assert.EndsWith($"/v3/domains/{WebhookHarness.Domain}/webhooks/delivered", stub.LastRequestUri!.AbsolutePath);
         Assert.Equal(urls, stub.Requests[0].Values("url"));
         Assert.Equal(0, stub.Requests[0].Count("id"));
         Assert.Equal(WebhookEventType.Delivered, registration.EventType);

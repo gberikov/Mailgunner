@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 
 namespace Mailgunner.Tests.Fakes;
 
@@ -178,6 +179,13 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
     /// </summary>
     public Func<int, bool>? TransientFailureSelector { get; set; }
 
+    /// <summary>
+    /// An optional per-request-index asynchronous hook awaited before the response is produced, with
+    /// the request's cancellation token. Lets a test model a hanging attempt (await an infinite delay
+    /// bound to the token) so a per-attempt timeout can be exercised offline.
+    /// </summary>
+    public Func<int, CancellationToken, Task>? BeforeResponse { get; set; }
+
     /// <inheritdoc />
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
@@ -208,7 +216,15 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
             foreach (var part in multipart)
             {
                 var name = Unquote(part.Headers.ContentDisposition?.Name);
-                var value = await part.ReadAsStringAsync(CancellationToken.None).ConfigureAwait(false);
+                // CopyToAsync (rather than ReadAsStringAsync) is used deliberately: ReadAsStringAsync
+                // buffers the content into the HttpContent instance itself, so a second read of the
+                // same part (the resilience handler resends the same HttpRequestMessage/content on a
+                // retry) would silently return the cached bytes instead of re-invoking
+                // SerializeToStreamAsync — masking whether a stream-backed attachment's factory is
+                // actually re-opened per attempt, the way the real transport re-serializes it.
+                using var partBuffer = new MemoryStream();
+                await part.CopyToAsync(partBuffer, CancellationToken.None).ConfigureAwait(false);
+                var value = Encoding.UTF8.GetString(partBuffer.ToArray());
                 var rawFileName = part.Headers.ContentDisposition?.FileName;
                 var fileName = rawFileName is null ? null : rawFileName.Trim('"');
                 var contentType = part.Headers.ContentType?.MediaType;
@@ -225,6 +241,11 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
 
         OnSend?.Invoke(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
+
+        if (BeforeResponse is not null)
+        {
+            await BeforeResponse(index, cancellationToken).ConfigureAwait(false);
+        }
 
         if (TransientFailureSelector?.Invoke(index) == true)
         {

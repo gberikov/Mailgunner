@@ -13,7 +13,7 @@ public class WebhookDeleteTests
         await client.Webhooks.DeleteAsync(WebhookEventType.Clicked);
 
         Assert.Equal(HttpMethod.Delete, stub.LastMethod);
-        Assert.EndsWith($"/v3/{WebhookHarness.Domain}/webhooks/clicked", stub.LastRequestUri!.AbsolutePath);
+        Assert.EndsWith($"/v3/domains/{WebhookHarness.Domain}/webhooks/clicked", stub.LastRequestUri!.AbsolutePath);
     }
 
     [Fact]

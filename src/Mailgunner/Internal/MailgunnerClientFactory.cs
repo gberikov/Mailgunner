@@ -39,7 +39,7 @@ internal sealed class MailgunnerClientFactory : IMailgunnerClientFactory
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw new System.ArgumentException(
+            throw new ArgumentException(
                 "A Mailgunner client name must be provided and cannot be blank.", nameof(name));
         }
 
@@ -49,7 +49,7 @@ internal sealed class MailgunnerClientFactory : IMailgunnerClientFactory
             var detail = registered.Count == 0
                 ? "No named Mailgunner clients are registered."
                 : $"Registered names: {string.Join(", ", registered)}.";
-            throw new System.ArgumentException(
+            throw new ArgumentException(
                 $"No Mailgunner client is registered under the name '{name}'. {detail}", nameof(name));
         }
 

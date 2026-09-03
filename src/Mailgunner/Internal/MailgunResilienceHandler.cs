@@ -28,6 +28,8 @@ internal sealed class MailgunResilienceHandler : DelegatingHandler
     private static readonly ResiliencePropertyKey<AttemptCounter> AttemptCounterKey =
         new("Mailgunner.RetryAttemptCounter");
 
+    private static readonly ResiliencePropertyKey<bool> IsSendKey = new("Mailgunner.IsSend");
+
     private static readonly Action<ILogger, int, string, Exception?> LogRetriesExhausted =
         LoggerMessage.Define<int, string>(
             LogLevel.Warning,
@@ -101,16 +103,19 @@ internal sealed class MailgunResilienceHandler : DelegatingHandler
         var context = ResilienceContextPool.Shared.Get(cancellationToken);
         var counter = new AttemptCounter();
         context.Properties.Set(AttemptCounterKey, counter);
+        context.Properties.Set(IsSendKey, MailgunRequestMarkers.IsSend(request));
 
         try
         {
             var response = await _pipeline
                 .ExecuteAsync(
-                    async ctx => await base.SendAsync(request, ctx.CancellationToken).ConfigureAwait(false),
+                    async ctx => await SendAttemptAsync(request, ctx.CancellationToken).ConfigureAwait(false),
                     context)
                 .ConfigureAwait(false);
 
-            if (_options.MaxRetryAttempts > 0 && RetryClassification.IsRetryableStatus((int)response.StatusCode))
+            if (_options.MaxRetryAttempts > 0
+                && counter.Retries >= _options.MaxRetryAttempts
+                && RetryClassification.IsRetryableStatus((int)response.StatusCode))
             {
                 LogRetriesExhausted(
                     _logger,
@@ -135,6 +140,26 @@ internal sealed class MailgunResilienceHandler : DelegatingHandler
         }
     }
 
+    /// <summary>
+    /// Runs one attempt under <see cref="RetryPolicyOptions.AttemptTimeout"/>. A timeout is reported as
+    /// <see cref="TimeoutException"/> (retryable under the full policy); the caller's own cancellation
+    /// propagates unchanged.
+    /// </summary>
+    private async Task<HttpResponseMessage> SendAttemptAsync(HttpRequestMessage request, CancellationToken callerToken)
+    {
+        using var attempt = CancellationTokenSource.CreateLinkedTokenSource(callerToken);
+        attempt.CancelAfter(_options.AttemptTimeout);
+        try
+        {
+            return await base.SendAsync(request, attempt.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException ex) when (attempt.IsCancellationRequested && !callerToken.IsCancellationRequested)
+        {
+            throw new TimeoutException(
+                $"The Mailgun request attempt exceeded the attempt timeout of {_options.AttemptTimeout}.", ex);
+        }
+    }
+
     private ResiliencePipeline<HttpResponseMessage> BuildPipeline()
     {
         // A zero budget disables retry; Polly requires at least one attempt, so use a pass-through.
@@ -145,8 +170,7 @@ internal sealed class MailgunResilienceHandler : DelegatingHandler
 
         var retry = new RetryStrategyOptions<HttpResponseMessage>
         {
-            ShouldHandle = args =>
-                new ValueTask<bool>(ShouldRetry(args.Outcome, args.Context.CancellationToken)),
+            ShouldHandle = args => new ValueTask<bool>(ShouldRetry(args.Outcome, args.Context)),
             MaxRetryAttempts = _options.MaxRetryAttempts,
             DelayGenerator = args =>
                 new ValueTask<TimeSpan?>(ComputeDelay(args.Outcome, args.AttemptNumber)),
@@ -166,11 +190,18 @@ internal sealed class MailgunResilienceHandler : DelegatingHandler
             .Build();
     }
 
-    private static bool ShouldRetry(Outcome<HttpResponseMessage> outcome, CancellationToken cancellationToken)
+    private bool ShouldRetry(Outcome<HttpResponseMessage> outcome, ResilienceContext context)
     {
+        var isSend = context.Properties.TryGetValue(IsSendKey, out var send) && send;
+        if (isSend && _options.SendRetryMode == SendRetryMode.Safe)
+        {
+            // A send is not idempotent: only a rate-limit rejection is provably unaccepted.
+            return outcome.Result is { } rejected && (int)rejected.StatusCode == 429;
+        }
+
         if (outcome.Exception is { } exception)
         {
-            return RetryClassification.IsTransientTransport(exception, cancellationToken);
+            return RetryClassification.IsTransientTransport(exception, context.CancellationToken);
         }
 
         return outcome.Result is { } response
@@ -191,16 +222,37 @@ internal sealed class MailgunResilienceHandler : DelegatingHandler
         }
 
         // Fallback: exponential base growth plus bounded additive jitter, then cap.
-        var baseDelay = Multiply(_options.BaseDelay, Math.Pow(2, attemptNumber));
-        var jitter = _options.UseJitter
-            ? Multiply(baseDelay, _random.NextDouble() * JitterFraction)
-            : TimeSpan.Zero;
-
-        return RetryClassification.Cap(baseDelay + jitter, _options.MaxSingleWait);
+        return ComputeBackoffDelay(attemptNumber);
     }
 
-    private static TimeSpan Multiply(TimeSpan value, double factor) =>
-        TimeSpan.FromTicks((long)(value.Ticks * factor));
+    /// <summary>
+    /// Computes the exponential-backoff-plus-jitter wait for the given 0-based retry attempt,
+    /// saturated at <see cref="RetryPolicyOptions.MaxSingleWait"/>. Computed in <c>double</c> so a
+    /// large <see cref="RetryPolicyOptions.BaseDelay"/> or attempt count cannot overflow the tick
+    /// count the way multiplying <see cref="TimeSpan"/> values directly used to. <c>internal</c>
+    /// (rather than <c>private</c>) so the saturating behavior can be pinned directly at
+    /// configurations — such as <see cref="TimeSpan.MaxValue"/> — that a real wait can never reach
+    /// end-to-end, since a wait that long exceeds what <see cref="Task.Delay(TimeSpan)"/> itself can
+    /// schedule.
+    /// </summary>
+    /// <param name="attemptNumber">The 0-based retry attempt number.</param>
+    /// <returns>The computed, capped wait.</returns>
+    internal TimeSpan ComputeBackoffDelay(int attemptNumber)
+    {
+        var capTicks = (double)_options.MaxSingleWait.Ticks;
+        var baseTicks = Math.Min(_options.BaseDelay.Ticks * Math.Pow(2, attemptNumber), capTicks);
+        var jitterTicks = _options.UseJitter ? baseTicks * _random.NextDouble() * JitterFraction : 0d;
+        var totalTicks = baseTicks + jitterTicks;
+
+        // capTicks may itself be the double rounding of long.MaxValue up to exactly 2^63 (when
+        // MaxSingleWait is TimeSpan.MaxValue), which does not fit back into a long. Comparing in
+        // double space and returning the configured MaxSingleWait verbatim once saturated avoids
+        // ever casting a value that could round up to (or past) that boundary — an unchecked cast
+        // there would silently wrap to a large negative TimeSpan instead of throwing.
+        return totalTicks >= capTicks
+            ? _options.MaxSingleWait
+            : TimeSpan.FromTicks((long)totalTicks);
+    }
 
     /// <summary>Per-execution mutable retry count carried through the resilience context.</summary>
     private sealed class AttemptCounter

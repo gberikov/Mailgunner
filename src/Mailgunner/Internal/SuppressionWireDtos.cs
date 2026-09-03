@@ -9,7 +9,7 @@ internal sealed class PageDto<TItem>
 {
     /// <summary>Gets or sets the entries on this page.</summary>
     [System.Text.Json.Serialization.JsonPropertyName("items")]
-    public System.Collections.Generic.List<TItem>? Items { get; set; }
+    public List<TItem>? Items { get; set; }
 
     /// <summary>Gets or sets the pagination pointers for this page.</summary>
     [System.Text.Json.Serialization.JsonPropertyName("paging")]
@@ -65,7 +65,7 @@ internal sealed class UnsubscribeDto
 
     /// <summary>Gets or sets the tags the address unsubscribed from.</summary>
     [System.Text.Json.Serialization.JsonPropertyName("tags")]
-    public System.Collections.Generic.List<string>? Tags { get; set; }
+    public List<string>? Tags { get; set; }
 
     /// <summary>Gets or sets the recorded timestamp.</summary>
     [System.Text.Json.Serialization.JsonPropertyName("created_at")]
@@ -109,7 +109,7 @@ internal sealed class AddUnsubscribeDto
 
     /// <summary>Gets or sets the optional tags to unsubscribe from.</summary>
     [System.Text.Json.Serialization.JsonPropertyName("tags")]
-    public System.Collections.Generic.List<string>? Tags { get; set; }
+    public List<string>? Tags { get; set; }
 }
 
 /// <summary>The JSON request body for adding a complaint.</summary>

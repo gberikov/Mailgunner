@@ -5,70 +5,75 @@ namespace Mailgunner;
 
 /// <summary>
 /// Default <see cref="IMailgunnerClient"/> implementation. Constructed by the HTTP client
-/// factory as a typed client whose underlying <see cref="System.Net.Http.HttpClient"/> is
+/// factory as a typed client whose underlying <see cref="HttpClient"/> is
 /// pre-configured with the regional base URL and HTTP Basic authentication.
 /// </summary>
 internal sealed class MailgunnerClient : IMailgunnerClient
 {
+    /// <summary>The sending domain, trimmed and percent-encoded for use in request paths.</summary>
     private readonly string _domain;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MailgunnerClient"/> class.
     /// </summary>
     /// <param name="httpClient">The configured typed HTTP client.</param>
-    /// <param name="options">The configured Mailgunner options supplying the sending domain.</param>
-    public MailgunnerClient(System.Net.Http.HttpClient httpClient, IOptions<MailgunnerOptions> options)
+    /// <param name="options">The configured Mailgunner options supplying the sending domain, trimmed and percent-encoded for use in request paths.</param>
+    public MailgunnerClient(HttpClient httpClient, IOptions<MailgunnerOptions> options)
     {
         Guard.NotNull(options, nameof(options));
         HttpClient = httpClient;
-        _domain = options.Value.Domain.Trim();
-        _suppressions = new System.Lazy<IMailgunSuppressions>(
-            () => new MailgunSuppressions(HttpClient, _domain));
-        _webhooks = new System.Lazy<IMailgunWebhooks>(
-            () => new MailgunWebhooks(HttpClient, _domain));
+        _domain = Uri.EscapeDataString(options.Value.Domain.Trim());
+        Suppressions = new MailgunSuppressions(HttpClient, _domain);
+        Webhooks = new MailgunWebhooks(HttpClient, _domain);
     }
 
-    private readonly System.Lazy<IMailgunSuppressions> _suppressions;
-    private readonly System.Lazy<IMailgunWebhooks> _webhooks;
+    /// <inheritdoc />
+    public IMailgunSuppressions Suppressions { get; }
 
     /// <inheritdoc />
-    public IMailgunSuppressions Suppressions => _suppressions.Value;
-
-    /// <inheritdoc />
-    public IMailgunWebhooks Webhooks => _webhooks.Value;
+    public IMailgunWebhooks Webhooks { get; }
 
     /// <summary>
     /// Gets the configured typed HTTP client backing this client. Exposed to the test project
     /// (via <c>InternalsVisibleTo</c>) so routing and authentication can be asserted; not part
     /// of the public surface.
     /// </summary>
-    internal System.Net.Http.HttpClient HttpClient { get; }
+    internal HttpClient HttpClient { get; }
 
     /// <inheritdoc />
-    public async System.Threading.Tasks.Task<SendResult> SendAsync(
+    public async Task<SendResult> SendAsync(
         MailgunMessage message,
-        System.Threading.CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
         using var content = MailgunMessageContent.Build(message);
         return await SendContentAsync(content, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
-    public async System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<SendResult>> SendBatchAsync(
+    public async Task<IReadOnlyList<SendResult>> SendBatchAsync(
         MailgunBatchMessage message,
-        System.Threading.CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
         MailgunBatchContent.Validate(message);
 
-        var results = new System.Collections.Generic.List<SendResult>();
+        var results = new List<SendResult>();
 
+        var chunkIndex = 0;
         foreach (var chunk in MailgunBatchContent.Chunk(message.Recipients, MailgunBatchContent.MaxRecipientsPerRequest))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             using var content = MailgunBatchContent.BuildChunk(message, chunk);
-            var result = await SendContentAsync(content, cancellationToken).ConfigureAwait(false);
-            results.Add(result);
+            try
+            {
+                results.Add(await SendContentAsync(content, cancellationToken).ConfigureAwait(false));
+            }
+            catch (MailgunnerException ex)
+            {
+                throw new MailgunnerException(ex.StatusCode, ex.ResponseBody, chunkIndex, results.AsReadOnly());
+            }
+
+            chunkIndex++;
         }
 
         return results;
@@ -80,27 +85,25 @@ internal sealed class MailgunnerClient : IMailgunnerClient
     /// or an unparseable success body. Shared by single and batch send so both honor the same error
     /// contract.
     /// </summary>
-    private async System.Threading.Tasks.Task<SendResult> SendContentAsync(
-        System.Net.Http.HttpContent content,
-        System.Threading.CancellationToken cancellationToken)
+    private async Task<SendResult> SendContentAsync(
+        HttpContent content,
+        CancellationToken cancellationToken)
     {
-        var requestUri = new Uri($"v3/{_domain}/messages", UriKind.Relative);
-        using var response = await HttpClient
-            .PostAsync(requestUri, content, cancellationToken)
-            .ConfigureAwait(false);
+        var request = new HttpRequestMessage(
+            HttpMethod.Post, new Uri($"v3/{_domain}/messages", UriKind.Relative))
+        {
+            Content = content,
+        };
+        MailgunRequestMarkers.MarkAsSend(request);
 
-#if NET8_0_OR_GREATER
-        var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-#else
-        var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-#endif
+        var (status, body) = await MailgunHttp.SendAsync(HttpClient, request, cancellationToken).ConfigureAwait(false);
 
-        if (response.IsSuccessStatusCode && TryParseResult(body, out var result))
+        if (TryParseResult(body, out var result))
         {
             return result;
         }
 
-        throw new MailgunnerException((int)response.StatusCode, body);
+        throw new MailgunnerException(status, body);
     }
 
     private static bool TryParseResult(string body, out SendResult result)

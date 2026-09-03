@@ -9,25 +9,31 @@ public sealed class RetryPolicyOptions
 {
     /// <summary>
     /// Gets or sets the number of <em>retries</em> attempted after the first send (so the total
-    /// number of attempts is at most <c>MaxRetryAttempts + 1</c>). Must be <c>&gt;= 0</c>; <c>0</c>
-    /// disables retry. Bounds the retry budget. Defaults to <c>3</c>.
+    /// number of attempts is at most <c>MaxRetryAttempts + 1</c>). Must be between <c>0</c> and
+    /// <see cref="MaxAllowedRetryAttempts"/> inclusive; <c>0</c> disables retry. Bounds the retry
+    /// budget. Defaults to <c>3</c>.
     /// </summary>
     public int MaxRetryAttempts { get; set; } = 3;
 
+    /// <summary>The largest accepted <see cref="MaxRetryAttempts"/>; bounds the exponential schedule.</summary>
+    public const int MaxAllowedRetryAttempts = 10;
+
     /// <summary>
     /// Gets or sets the starting backoff used for the first retry; the computed backoff grows
-    /// exponentially with each subsequent retry. Must be <c>&gt; <see cref="System.TimeSpan.Zero"/></c>.
+    /// exponentially with each subsequent retry. Must be <c>&gt; <see cref="TimeSpan.Zero"/></c>.
     /// Defaults to 500&#160;milliseconds.
     /// </summary>
-    public System.TimeSpan BaseDelay { get; set; } = System.TimeSpan.FromMilliseconds(500);
+    public TimeSpan BaseDelay { get; set; } = TimeSpan.FromMilliseconds(500);
 
     /// <summary>
     /// Gets or sets the mandatory upper bound applied to <em>every single</em> wait, including a wait
-    /// derived from a server <c>Retry-After</c> header. Must be <c>&gt;= <see cref="BaseDelay"/></c>.
-    /// Guarantees a hostile or far-future value cannot stall a send indefinitely. Defaults to
-    /// 30&#160;seconds.
+    /// derived from a server <c>Retry-After</c> header. Must be <c>&gt;= <see cref="BaseDelay"/></c>
+    /// and at most one day &#8212; above that, .NET Framework 4.8's ~24.9-day timer ceiling (the
+    /// lower of the two ceilings across the frameworks this library targets) is exceeded and the
+    /// wait cannot be scheduled. Guarantees a hostile or far-future value cannot stall a send
+    /// indefinitely. Defaults to 30&#160;seconds.
     /// </summary>
-    public System.TimeSpan MaxSingleWait { get; set; } = System.TimeSpan.FromSeconds(30);
+    public TimeSpan MaxSingleWait { get; set; } = TimeSpan.FromSeconds(30);
 
     /// <summary>
     /// Gets or sets a value indicating whether a bounded additive random component (a fraction less
@@ -36,4 +42,25 @@ public sealed class RetryPolicyOptions
     /// one. Defaults to <see langword="true"/>.
     /// </summary>
     public bool UseJitter { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets how a message send is retried. Defaults to <see cref="SendRetryMode.Safe"/>
+    /// (retry only on <c>429</c>) because a send is not idempotent. See <see cref="Mailgunner.SendRetryMode"/>.
+    /// </summary>
+    public SendRetryMode SendRetryMode { get; set; } = SendRetryMode.Safe;
+
+    /// <summary>
+    /// Gets or sets the maximum duration of a <em>single</em> attempt, from connect and send until the
+    /// response <em>headers</em> arrive. An attempt exceeding it is abandoned and surfaces as
+    /// <see cref="TimeoutException"/>, which the retry policy treats as a transient transport fault. The
+    /// response body is read by <c>HttpClient</c> outside this per-attempt bound; it is covered instead by
+    /// the typed client's overall <c>HttpClient.Timeout</c>, which the library sets to the worst case over
+    /// every attempt and wait, <c>(MaxRetryAttempts + 1) × AttemptTimeout + MaxRetryAttempts × MaxSingleWait</c>,
+    /// so backoff waits are never cut short and a stalled body can never hang a caller indefinitely.
+    /// Must be <c>&gt; <see cref="TimeSpan.Zero"/></c> and at most one day &#8212; above that,
+    /// .NET Framework 4.8's ~24.9-day timer ceiling (the lower of the two ceilings across the
+    /// frameworks this library targets) is exceeded and the <em>first</em> attempt of every request
+    /// fails, not only a retry. Defaults to 100&#160;seconds.
+    /// </summary>
+    public TimeSpan AttemptTimeout { get; set; } = TimeSpan.FromSeconds(100);
 }

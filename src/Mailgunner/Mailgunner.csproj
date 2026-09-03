@@ -3,14 +3,23 @@
   <PropertyGroup>
     <TargetFrameworks>net8.0;netstandard2.0</TargetFrameworks>
     <IsPackable>true</IsPackable>
+
+    <!-- Validates the net8.0 and netstandard2.0 surfaces against each other on pack. After the first
+         stable release add <PackageValidationBaselineVersion> to also catch breaking changes. -->
+    <EnablePackageValidation>true</EnablePackageValidation>
   </PropertyGroup>
 
   <ItemGroup>
     <!-- Permitted runtime dependencies (constitution Principle I); versions centrally managed. -->
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
-    <PackageReference Include="Polly" />
+    <PackageReference Include="Polly.Core" />
     <PackageReference Include="System.Text.Json" />
+    <!-- TimeProvider (public API surface, e.g. MailgunWebhookSignature.Verify) is in-box on net8.0
+         but comes from this package on netstandard2.0; declared explicitly so it is a direct,
+         version-pinned dependency of the published netstandard2.0 package rather than an
+         undeclared transitive of Polly.Core. -->
+    <PackageReference Include="Microsoft.Bcl.TimeProvider" Condition="'$(TargetFramework)' == 'netstandard2.0'" />
   </ItemGroup>
 
   <ItemGroup>

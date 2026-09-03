@@ -62,6 +62,30 @@ public class WebhookValidationTests
         Assert.Empty(stub.Requests);
     }
 
+    [Theory]
+    [InlineData("create", "not a url")]
+    [InlineData("create", "ftp://hooks.example.com/x")]
+    [InlineData("create", "/relative/path")]
+    [InlineData("update", "not a url")]
+    [InlineData("update", "ftp://hooks.example.com/x")]
+    [InlineData("fan-out", "not a url")]
+    [InlineData("fan-out", "/relative/path")]
+    public async Task A_url_that_is_not_absolute_http_or_https_throws_and_issues_no_request(string operation, string url)
+    {
+        var (client, stub) = WebhookHarness.BuildClient();
+        var urls = new[] { url };
+        var events = new[] { WebhookEventType.Delivered };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => operation switch
+        {
+            "create" => client.Webhooks.CreateAsync(WebhookEventType.Delivered, urls),
+            "update" => client.Webhooks.UpdateAsync(WebhookEventType.Delivered, urls),
+            _ => client.Webhooks.CreateAsync(events, url),
+        });
+
+        Assert.Empty(stub.Requests);
+    }
+
     [Fact]
     public async Task Undefined_event_type_on_get_throws_and_issues_no_request()
     {

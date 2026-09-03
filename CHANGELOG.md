@@ -7,11 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-03
+
+First version published to NuGet. It ships the foundation drafted on 2026-06-24 (listed at the end of
+this file; never tagged or published) together with the review-driven changes below. The Changed,
+Removed, Fixed and Security entries describe changes relative to that unpublished draft.
+
 ### Added
+
+- Send options `Dkim`, `SecondaryDkim`, `SecondaryDkimPublic`, `DeliverWithin`,
+  `DeliveryTimeOptimizePeriod`, `TrackingPixelLocationTop`, `ArchiveTo` and `SuppressHeaders`
+  (`o:dkim`, `o:secondary-dkim`, `o:secondary-dkim-public`, `o:deliver-within`,
+  `o:deliverytime-optimize-period`, `o:tracking-pixel-location-top`, `o:archive-to`, `o:suppress-headers`).
+- Every request carries a `User-Agent: Mailgunner/<version>` header.
+- `WebhookRegistration` has a public constructor, so a hand-written test double of `IMailgunWebhooks`
+  can build the registrations it returns.
 
 - Domain webhook management: a new `client.Webhooks` (`IMailgunWebhooks`) capability area that lists,
   reads, creates, updates, and deletes a domain's webhook registrations over Mailgun's v3 webhook
-  endpoints (`/v3/{domain}/webhooks`), mirroring the shape of `client.Suppressions`. A webhook is keyed by
+  endpoints (`/v3/domains/{domain}/webhooks`), mirroring the shape of `client.Suppressions`. A webhook is keyed by
   one of a closed, typed set of event types (`WebhookEventType`: `Delivered`, `Opened`, `Clicked`,
   `Unsubscribed`, `Complained`, `PermanentFail`, `TemporaryFail`) and carries one or more callback URLs,
   returned as a typed `WebhookRegistration` (`EventType` + `Urls`). `CreateAsync(eventType, urls)` and
@@ -52,9 +66,92 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   default). This is purely additive (SemVer MINOR). Adds the first-party
   `Microsoft.Extensions.Options.ConfigurationExtensions` dependency, used only by the configuration-
   section overload.
+- MailgunWebhookSignature.Verify overload with maxAge (and optional TimeProvider) rejecting stale/future timestamps.
+- WebhookEventType.Accepted.
+- ReplyTo on MailgunMessage and MailgunBatchMessage (emitted as h:Reply-To); Options is now settable so one MailgunSendOptions can be shared.
+- Send options RequireTls, SkipVerification, Tracking, SendingIp, SendingIpPool, TimeZoneLocalize and MailgunMessage.AmpHtml.
+- Batch sends without a stored template: MailgunBatchMessage.Text / Html with %recipient.var% placeholders.
+- MailgunnerException.FailedChunkIndex / AcceptedResults expose which batch chunks were accepted before a failure.
+- ISuppressionList<T>.AddRangeAsync for bulk adds (chunks of 1000 per request). **Upgrade note:**
+  this is a required member on a public interface with no default implementation, so a hand-written
+  implementation of `ISuppressionList<T>` (for example a test double) must add it to keep compiling;
+  mocking frameworks are unaffected.
+- Stream-backed MailgunFile(fileName, Func<Stream>, contentType, length); Content is now nullable for such files.
+- RetryPolicyOptions.AttemptTimeout (default 100 s) bounds each individual request attempt under the resilience handler.
+- The netstandard2.0 build is now executed by a net48 test project on the Windows CI leg.
+- A new `tests/Mailgunner.IntegrationTests` project runs sends, suppressions, and webhooks against a
+  real Mailgun account when the `Mailgun__Domain` / `Mailgun__SendingKey` / `Mailgun__Region` (and, for
+  the send test, `Mailgun__Recipients__0__Address`) environment variables are set; every test reports
+  `Skipped` (via `Xunit.SkippableFact`) when they are absent, so the project builds and runs green with
+  no secrets and is never picked up by CI or the release workflow's scoped `dotnet test` commands. Each
+  test cleans up what it created — restoring, not deleting, a pre-existing webhook registration for the
+  event type it exercises — even on a failing assertion, and isolates each cleanup step so one failing
+  does not block another.
+- The release workflow now builds and runs the test suite before packing, and the package is
+  validated for target-framework compatibility on pack (`EnablePackageValidation`); a red test
+  suite or an invalid package now blocks publishing.
+
+### Changed
+
+- **Message sends are now retried only on HTTP 429 by default**, because `POST /messages` is not
+  idempotent (new `RetryPolicyOptions.SendRetryMode`, default `Safe`). Set `SendRetryMode.Full` to
+  restore the previous behaviour — retry on `408`/`5xx`/transport faults too — accepting the risk of
+  duplicate delivery. Suppression and webhook requests are unaffected and keep retrying on the full
+  policy. **Upgrade note:** a send that previously retried transient failures now surfaces them after
+  one attempt unless you opt into `Full`.
+- **Each attempt is now bounded by the new `RetryPolicyOptions.AttemptTimeout`** (default 100 s, up to
+  the response headers), and the typed `HttpClient`'s overall `Timeout` is set to the worst case over
+  every attempt and wait, `(MaxRetryAttempts + 1) × AttemptTimeout + MaxRetryAttempts × MaxSingleWait`
+  (490 s with the defaults), so retries and backoff waits are never cut short while a stalled response
+  body, which `HttpClient` reads outside the per-attempt timeout, can never hang a caller that passed
+  no `CancellationToken`. **Upgrade note:** a caller relying on the previous 100 s `HttpClient` default
+  to bound the *whole* call should lower `AttemptTimeout` and/or `MaxRetryAttempts`.
+- `MailgunSendOptions.CustomHeaders` compares header names case-insensitively, like mail headers, so
+  `Reply-To` and `reply-to` can no longer both reach the wire.
+- A success response whose body is not valid JSON now surfaces as `MailgunnerException` (status + raw
+  body) from the suppression and webhook operations too, instead of a raw `JsonException`; the send
+  path already behaved this way.
+- Webhook callback URLs must be absolute `http` or `https` URLs; anything else throws
+  `ArgumentException` before any request. The multi-event `CreateAsync` overload registers each distinct
+  event type once, so a repeated event type no longer triggers a service rejection mid-fan-out.
+- Transport failures that yield no response (`HttpRequestException`, `TimeoutException`,
+  `TaskCanceledException`) are now documented on `IMailgunnerClient` and in the README; they were always
+  surfaced unwrapped.
+- MailgunnerException.Message now includes Mailgun's "message" from a JSON error body (truncated to 200 chars).
+- Batch send validates every recipient address up front: a recipient created from a
+  `default(EmailAddress)` (blank address) now throws `ArgumentException` before any request instead
+  of failing later during multipart construction.
+- Suppression-list page size is now bounded to the Mailgun-documented range `1..1000`; an
+  out-of-range value throws `ArgumentOutOfRangeException` before any request.
+- Runtime dependency floors lowered to the 8.0.x Extensions train (Microsoft.Extensions.Http 8.0.1,
+  System.Text.Json 8.0.5); Polly replaced by the slimmer Polly.Core.
+- MaxRetryAttempts is validated to be at most 10; backoff math saturates at MaxSingleWait instead of overflowing.
+
+### Removed
+
+- Removed the placeholder public `MailgunnerInfo` type (a scaffold artifact with no runtime value);
+  the offline smoke test now asserts the real client contract instead.
+
+### Fixed
+
+- Domain webhook management now targets Mailgun's actual path `/v3/domains/{domain}/webhooks`; the previous `/v3/{domain}/webhooks` returned HTTP 404 for every operation.
+- Suppression entries' CreatedAt is now populated: Mailgun's "…UTC" timestamps were silently parsed to null.
+- Suppression AddAsync now sends the JSON array shape Mailgun documents; a bare JSON object was rejected.
+- Calling the unnamed AddMailgunner more than once no longer stacks a second retry handler (which multiplied attempts and waits); the latest options still win.
+- The sample reports a `Mailgun:From` or `Mailgun:Recipients:N:Address` setting in `Name <addr>` form
+  as a missing/invalid setting and exits cleanly, instead of crashing with `ArgumentException`.
+- On the netstandard2.0 build, per-thread retry jitter sources are seeded explicitly; on .NET Framework
+  the parameterless `Random` seeds from the clock tick, so threads started together drew identical jitter.
 
 ### Security
 
+- The `Authorization` header is redacted from the HTTP client factory's own request logging
+  (`RedactLoggedHeaders`), so a `Trace`-level logger no longer prints the Basic-auth sending key.
+- `MailgunFile` rejects a file name containing a control character or a double quote with
+  `ArgumentException` at construction; previously such a name surfaced late, at send time, as a transport
+  `FormatException`.
+
+- The sending domain is now percent-encoded in request paths, preventing a domain value containing `/`, `?`, `#` or space from escaping its path segment and rewriting the request target.
 - Suppression-list pagination now validates a caller-supplied cursor before following it: only an
   absolute `https` URL on the configured Mailgun host (matching the client's base address) and
   addressing the same list is accepted; anything else throws `ArgumentException` with no request
@@ -65,31 +162,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as a quoted string (with embedded `"` and `\` escaped). Custom header names must be valid RFC 7230
   tokens and custom header values must not contain line breaks; custom variable names must be free of
   control characters. All are rejected with `ArgumentException` before any request.
+- EmailAddress now rejects list/delimiter characters (, ; < > " ( ) [ ] \ and whitespace) and malformed
+  '@' placement, so a single caller-supplied value can no longer smuggle extra recipients.
+  **Upgrade note:** a display name must now be passed separately — `new EmailAddress("bob@example.com",
+  "Bob")` — rather than embedded in the address string as `"Bob <bob@example.com>"`. The library
+  quotes and escapes the display name for you when it builds the wire value, so the emitted header is
+  unchanged.
 - CI/release supply-chain hardening: GitHub Actions are pinned to commit SHAs (not mutable `@v4`
   tags), a failing `dotnet list package --vulnerable` audit gate was added to CI, and a Dependabot
   configuration keeps the action pins and NuGet packages current.
 
-### Changed
+## Unpublished draft - 2026-06-24
 
-- Batch send validates every recipient address up front: a recipient created from a
-  `default(EmailAddress)` (blank address) now throws `ArgumentException` before any request instead
-  of failing later during multipart construction.
-- Suppression-list page size is now bounded to the Mailgun-documented range `1..1000`; an
-  out-of-range value throws `ArgumentOutOfRangeException` before any request.
-
-### Removed
-
-- Removed the placeholder public `MailgunnerInfo` type (a scaffold artifact with no runtime value);
-  the offline smoke test now asserts the real client contract instead.
-
-## [0.1.0-preview.1] - 2026-06-24
-
-First public **pre-release** to NuGet. Ships the complete `0.1.0` foundation below for early
-feedback while the public API may still evolve; published as a pre-release so it is not
-surfaced as the latest stable version. See [0.1.0](#010---2026-06-24) for the full feature
-set included in this pre-release.
-
-## [0.1.0] - 2026-06-24
+The foundation on which [0.1.0](#010---2026-09-03) builds. It was drafted as `0.1.0` (and a
+`0.1.0-preview.1` pre-release was planned) but never tagged or pushed to nuget.org; it is kept here
+because the 0.1.0 entries above describe their changes relative to it.
 
 ### Added
 

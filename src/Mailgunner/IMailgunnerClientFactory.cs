@@ -20,7 +20,7 @@ public interface IMailgunnerClientFactory
     /// A ready <see cref="IMailgunnerClient"/> (sending and suppressions) bound to that name's
     /// configuration. Never <see langword="null"/>.
     /// </returns>
-    /// <exception cref="System.ArgumentException">
+    /// <exception cref="ArgumentException">
     /// <paramref name="name"/> is <see langword="null"/>, empty, or whitespace-only; or no client is
     /// registered under <paramref name="name"/>. This is a standard configuration/lookup error, never
     /// a <see cref="MailgunnerException"/> (which is reserved for HTTP API responses).

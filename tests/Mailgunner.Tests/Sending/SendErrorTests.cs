@@ -104,4 +104,36 @@ public class SendErrorTests
         Assert.DoesNotContain(SendingKey, ex.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(SendingKey, ex.ToString(), StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Exception_message_includes_the_service_message_from_a_json_body()
+    {
+        var client = BuildClient(HttpStatusCode.BadRequest, "{\"message\":\"'from' parameter is missing\"}");
+
+        var ex = await Assert.ThrowsAsync<MailgunnerException>(() => client.SendAsync(NewMessage()));
+
+        Assert.Equal("The Mailgun request failed (HTTP 400): 'from' parameter is missing", ex.Message);
+    }
+
+    [Fact]
+    public async Task Exception_message_stays_generic_for_a_non_json_body()
+    {
+        var client = BuildClient(HttpStatusCode.BadGateway, "<html>502</html>");
+
+        var ex = await Assert.ThrowsAsync<MailgunnerException>(() => client.SendAsync(NewMessage()));
+
+        Assert.Equal("The Mailgun request did not yield a usable result (HTTP 502).", ex.Message);
+        Assert.Null(ex.FailedChunkIndex);
+        Assert.Empty(ex.AcceptedResults);
+    }
+
+    [Fact]
+    public void A_long_service_message_is_truncated_to_200_characters()
+    {
+        var body = "{\"message\":\"" + new string('x', 500) + "\"}";
+
+        var ex = new MailgunnerException(400, body);
+
+        Assert.Equal("The Mailgun request failed (HTTP 400): " + new string('x', 200) + "…", ex.Message);
+    }
 }

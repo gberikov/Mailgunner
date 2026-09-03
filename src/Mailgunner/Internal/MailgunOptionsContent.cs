@@ -20,44 +20,68 @@ internal static class MailgunOptionsContent
     /// <param name="options">The send options (tags, test mode, tracking, delivery time, headers, variables).</param>
     /// <param name="attachments">The downloadable attachments, emitted as <c>attachment</c> file parts.</param>
     /// <param name="inlineFiles">The embedded files, emitted as <c>inline</c> file parts.</param>
-    /// <exception cref="System.ArgumentException">A custom header or variable has a null/blank name.</exception>
+    /// <param name="replyTo">The optional typed reply-to address, emitted as <c>h:Reply-To</c>.</param>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="options"/> is null, a custom header or variable has a null/blank name, or
+    /// <paramref name="replyTo"/> conflicts with a manual <c>Reply-To</c> entry in
+    /// <see cref="MailgunSendOptions.CustomHeaders"/>.
+    /// </exception>
     public static void Append(
-        System.Net.Http.MultipartFormDataContent content,
+        MultipartFormDataContent content,
         MailgunSendOptions options,
-        System.Collections.Generic.IEnumerable<MailgunFile> attachments,
-        System.Collections.Generic.IEnumerable<MailgunFile> inlineFiles)
+        IEnumerable<MailgunFile> attachments,
+        IEnumerable<MailgunFile> inlineFiles,
+        EmailAddress? replyTo)
     {
+        if (options is null)
+        {
+            throw new ArgumentException("Message options must not be null.", nameof(options));
+        }
+
         // 1. Tags — one repeated o:tag per non-blank entry, in order, not de-duplicated.
         foreach (var tag in options.Tags)
         {
             if (!string.IsNullOrWhiteSpace(tag))
             {
-                Add(content, "o:tag", tag);
+                MailgunHttp.AddField(content, "o:tag", tag);
             }
         }
 
         // 2. Test mode — present only when enabled.
         if (options.TestMode)
         {
-            Add(content, "o:testmode", "yes");
+            MailgunHttp.AddField(content, "o:testmode", "yes");
         }
 
         // 3. Open tracking — omitted when null.
-        if (options.TrackingOpens is bool trackOpens)
-        {
-            Add(content, "o:tracking-opens", trackOpens ? "yes" : "no");
-        }
+        AddYesNo(content, "o:tracking-opens", options.TrackingOpens);
 
         // 4. Click tracking — omitted when null; supports htmlonly.
         if (options.TrackingClicks is ClickTracking trackClicks)
         {
-            Add(content, "o:tracking-clicks", ClickTrackingValue(trackClicks));
+            MailgunHttp.AddField(content, "o:tracking-clicks", ClickTrackingValue(trackClicks));
         }
 
+        // 4b. Additional o: toggles and strings — omitted when null/blank.
+        AddYesNo(content, "o:require-tls", options.RequireTls);
+        AddYesNo(content, "o:skip-verification", options.SkipVerification);
+        AddYesNo(content, "o:tracking", options.Tracking);
+        AddIfPresent(content, "o:sending-ip", options.SendingIp);
+        AddIfPresent(content, "o:sending-ip-pool", options.SendingIpPool);
+        AddIfPresent(content, "o:time-zone-localize", options.TimeZoneLocalize);
+        AddYesNo(content, "o:dkim", options.Dkim);
+        AddIfPresent(content, "o:secondary-dkim", options.SecondaryDkim);
+        AddIfPresent(content, "o:secondary-dkim-public", options.SecondaryDkimPublic);
+        AddIfPresent(content, "o:deliver-within", options.DeliverWithin);
+        AddIfPresent(content, "o:deliverytime-optimize-period", options.DeliveryTimeOptimizePeriod);
+        AddYesNo(content, "o:tracking-pixel-location-top", options.TrackingPixelLocationTop);
+        AddIfPresent(content, "o:archive-to", options.ArchiveTo);
+        AddIfPresent(content, "o:suppress-headers", options.SuppressHeaders);
+
         // 5. Scheduled delivery time — RFC 2822 with a numeric offset.
-        if (options.DeliveryTime is System.DateTimeOffset deliveryTime)
+        if (options.DeliveryTime is DateTimeOffset deliveryTime)
         {
-            Add(content, "o:deliverytime", FormatRfc2822(deliveryTime));
+            MailgunHttp.AddField(content, "o:deliverytime", FormatRfc2822(deliveryTime));
         }
 
         // 6. Custom headers — h:<name>; unique names; name must be a valid header token and the
@@ -66,30 +90,30 @@ internal static class MailgunOptionsContent
         {
             if (string.IsNullOrWhiteSpace(header.Key) || !IsValidHeaderToken(header.Key))
             {
-                throw new System.ArgumentException(
+                throw new ArgumentException(
                     "A custom header name must be a non-blank HTTP header token (RFC 7230).", nameof(options));
             }
 
             var headerValue = header.Value ?? string.Empty;
-            if (ContainsLineBreak(headerValue))
+            if (TextGuards.ContainsLineBreak(headerValue))
             {
-                throw new System.ArgumentException(
+                throw new ArgumentException(
                     "A custom header value must not contain line breaks.", nameof(options));
             }
 
-            Add(content, "h:" + header.Key, headerValue);
+            MailgunHttp.AddField(content, "h:" + header.Key, headerValue);
         }
 
         // 7. Custom variables — v:<name>; string values verbatim; blank or control-bearing name rejected.
         foreach (var variable in options.CustomVariables)
         {
-            if (string.IsNullOrWhiteSpace(variable.Key) || ContainsControlCharacter(variable.Key))
+            if (string.IsNullOrWhiteSpace(variable.Key) || TextGuards.ContainsControlCharacter(variable.Key))
             {
-                throw new System.ArgumentException(
+                throw new ArgumentException(
                     "A custom variable name must be non-blank and free of control characters.", nameof(options));
             }
 
-            Add(content, "v:" + variable.Key, variable.Value);
+            MailgunHttp.AddField(content, "v:" + variable.Key, variable.Value);
         }
 
         // 7b. List-Unsubscribe (RFC 8058 / RFC 2369) — opt-in; emits h:List-Unsubscribe and, when
@@ -98,6 +122,21 @@ internal static class MailgunOptionsContent
         if (options.ListUnsubscribe is ListUnsubscribeOptions unsubscribe)
         {
             AppendListUnsubscribe(content, options, unsubscribe);
+        }
+
+        // 7c. Reply-To — typed; conflicts with a manual header of the same name.
+        if (replyTo is EmailAddress reply && !string.IsNullOrWhiteSpace(reply.Address))
+        {
+            foreach (var key in options.CustomHeaders.Keys)
+            {
+                if (string.Equals(key, "Reply-To", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new ArgumentException(
+                        "Reply-To is set both via ReplyTo and a manual CustomHeaders entry; use only one.", nameof(options));
+                }
+            }
+
+            MailgunHttp.AddField(content, "h:Reply-To", reply.ToString());
         }
 
         // 8. Attachments — downloadable file parts.
@@ -122,14 +161,14 @@ internal static class MailgunOptionsContent
     /// <param name="content">The multipart body being built.</param>
     /// <param name="options">The owning options (its <c>CustomHeaders</c> are checked for a duplicate).</param>
     /// <param name="unsubscribe">The unsubscribe target to validate and emit.</param>
-    /// <exception cref="System.ArgumentException">
+    /// <exception cref="ArgumentException">
     /// The target is empty (no URL and no mailto), the URL is not an absolute <c>https</c> URI or carries
     /// control characters / line breaks, one-click is set without an <c>https</c> URL, or a
     /// <c>List-Unsubscribe</c> / <c>List-Unsubscribe-Post</c> header is also set manually via
     /// <c>CustomHeaders</c> (matched case-insensitively).
     /// </exception>
     private static void AppendListUnsubscribe(
-        System.Net.Http.MultipartFormDataContent content,
+        MultipartFormDataContent content,
         MailgunSendOptions options,
         ListUnsubscribeOptions unsubscribe)
     {
@@ -139,7 +178,7 @@ internal static class MailgunOptionsContent
 
         if (!hasUrl && !hasMailto)
         {
-            throw new System.ArgumentException(
+            throw new ArgumentException(
                 "A List-Unsubscribe target must have an https Url, a MailtoAddress, or both.", nameof(options));
         }
 
@@ -147,10 +186,10 @@ internal static class MailgunOptionsContent
         // case-insensitive, so the match is ordinal-ignore-case.
         foreach (var key in options.CustomHeaders.Keys)
         {
-            if (string.Equals(key, "List-Unsubscribe", System.StringComparison.OrdinalIgnoreCase)
-                || string.Equals(key, "List-Unsubscribe-Post", System.StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(key, "List-Unsubscribe", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "List-Unsubscribe-Post", StringComparison.OrdinalIgnoreCase))
             {
-                throw new System.ArgumentException(
+                throw new ArgumentException(
                     "List-Unsubscribe is set both via ListUnsubscribe and a manual CustomHeaders entry; use only one.",
                     nameof(options));
             }
@@ -159,27 +198,27 @@ internal static class MailgunOptionsContent
         if (hasUrl)
         {
             var url = unsubscribe.Url!;
-            if (ContainsLineBreak(url) || ContainsControlCharacter(url))
+            if (TextGuards.ContainsLineBreak(url) || TextGuards.ContainsControlCharacter(url))
             {
-                throw new System.ArgumentException(
+                throw new ArgumentException(
                     "A List-Unsubscribe Url must not contain control characters or line breaks.", nameof(options));
             }
 
-            if (!System.Uri.TryCreate(url, System.UriKind.Absolute, out var uri)
-                || !string.Equals(uri.Scheme, "https", System.StringComparison.OrdinalIgnoreCase))
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)
+                || !string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase))
             {
-                throw new System.ArgumentException(
+                throw new ArgumentException(
                     "A List-Unsubscribe Url must be an absolute https URI.", nameof(options));
             }
         }
 
         if (unsubscribe.OneClick && !hasUrl)
         {
-            throw new System.ArgumentException(
+            throw new ArgumentException(
                 "One-click List-Unsubscribe requires an https Url.", nameof(options));
         }
 
-        var targets = new System.Collections.Generic.List<string>(2);
+        var targets = new List<string>(2);
         if (hasUrl)
         {
             targets.Add("<" + unsubscribe.Url + ">");
@@ -190,11 +229,29 @@ internal static class MailgunOptionsContent
             targets.Add("<mailto:" + unsubscribe.MailtoAddress!.Value.Address + ">");
         }
 
-        Add(content, "h:List-Unsubscribe", string.Join(", ", targets));
+        MailgunHttp.AddField(content, "h:List-Unsubscribe", string.Join(", ", targets));
 
         if (unsubscribe.OneClick)
         {
-            Add(content, "h:List-Unsubscribe-Post", "List-Unsubscribe=One-Click");
+            MailgunHttp.AddField(content, "h:List-Unsubscribe-Post", "List-Unsubscribe=One-Click");
+        }
+    }
+
+    /// <summary>Emits <paramref name="name"/> as <c>yes</c>/<c>no</c> when <paramref name="value"/> is set; omitted when null.</summary>
+    private static void AddYesNo(MultipartFormDataContent content, string name, bool? value)
+    {
+        if (value is bool flag)
+        {
+            MailgunHttp.AddField(content, name, flag ? "yes" : "no");
+        }
+    }
+
+    /// <summary>Emits <paramref name="name"/> verbatim when <paramref name="value"/> is non-blank; omitted otherwise.</summary>
+    private static void AddIfPresent(MultipartFormDataContent content, string name, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            MailgunHttp.AddField(content, name, value!);
         }
     }
 
@@ -203,7 +260,7 @@ internal static class MailgunOptionsContent
         ClickTracking.Yes => "yes",
         ClickTracking.No => "no",
         ClickTracking.HtmlOnly => "htmlonly",
-        _ => throw new System.ArgumentOutOfRangeException(nameof(mode), mode, "Unknown click-tracking mode."),
+        _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown click-tracking mode."),
     };
 
     /// <summary>
@@ -211,20 +268,22 @@ internal static class MailgunOptionsContent
     /// colon, no named zone), for example <c>Thu, 25 Jun 2026 14:00:00 +0000</c>. Uses the invariant
     /// culture so day/month abbreviations are English regardless of the host locale.
     /// </summary>
-    private static string FormatRfc2822(System.DateTimeOffset value)
+    private static string FormatRfc2822(DateTimeOffset value)
     {
         var inv = System.Globalization.CultureInfo.InvariantCulture;
         var body = value.ToString("ddd, dd MMM yyyy HH:mm:ss ", inv);
         var offset = value.Offset;
-        var sign = offset < System.TimeSpan.Zero ? "-" : "+";
-        var hours = System.Math.Abs(offset.Hours).ToString("00", inv);
-        var minutes = System.Math.Abs(offset.Minutes).ToString("00", inv);
+        var sign = offset < TimeSpan.Zero ? "-" : "+";
+        var hours = Math.Abs(offset.Hours).ToString("00", inv);
+        var minutes = Math.Abs(offset.Minutes).ToString("00", inv);
         return body + sign + hours + minutes;
     }
 
-    private static void AddFile(System.Net.Http.MultipartFormDataContent content, string field, MailgunFile file)
+    private static void AddFile(MultipartFormDataContent content, string field, MailgunFile file)
     {
-        var fileContent = new System.Net.Http.ByteArrayContent(file.Content);
+        HttpContent fileContent = file.OpenContent is { } open
+            ? new StreamFactoryContent(open, file.Length)
+            : new System.Net.Http.ByteArrayContent(file.Content!);
         fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
             string.IsNullOrWhiteSpace(file.ContentType) ? DefaultContentType : file.ContentType!);
         content.Add(fileContent, field, file.FileName);
@@ -252,33 +311,4 @@ internal static class MailgunOptionsContent
 
         return true;
     }
-
-    private static bool ContainsLineBreak(string value)
-    {
-        foreach (var c in value)
-        {
-            if (c == '\r' || c == '\n')
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool ContainsControlCharacter(string value)
-    {
-        foreach (var c in value)
-        {
-            if (char.IsControl(c))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static void Add(System.Net.Http.MultipartFormDataContent content, string name, string value) =>
-        content.Add(new System.Net.Http.StringContent(value), name);
 }

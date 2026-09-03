@@ -42,7 +42,7 @@ public class BatchValidationTests
     }
 
     [Fact]
-    public async Task Missing_template_throws_argument_exception_and_issues_no_request()
+    public async Task Missing_template_and_body_throws_argument_exception_and_issues_no_request()
     {
         var (client, stub) = BuildClient();
         var batch = new MailgunBatchMessage { From = new EmailAddress("invites@mg.example.com") };
