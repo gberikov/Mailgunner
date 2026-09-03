@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `net10.0` target. The package now multi-targets `net10.0`, `net8.0` and `netstandard2.0`;
+  consumers on .NET 10 (LTS through November 2028) get the current runtime's asset instead of
+  the `net8.0` one. No API change — `net8.0` and `netstandard2.0` stay supported.
+
+### Changed
+
+- The `net8.0` and `net10.0` dependency groups no longer list `System.Text.Json`: with a
+  `net10.0` target present, the SDK prunes packages that the shared framework already provides
+  (it is in-box on both). The `netstandard2.0` group still carries it, as before.
+
 ## [0.1.0] - 2026-09-03
 
 First version published to NuGet. It ships the foundation drafted on 2026-06-24 (listed at the end of

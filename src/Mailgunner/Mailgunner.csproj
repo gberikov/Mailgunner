@@ -1,10 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;netstandard2.0</TargetFrameworks>
+    <TargetFrameworks>net10.0;net8.0;netstandard2.0</TargetFrameworks>
     <IsPackable>true</IsPackable>
 
-    <!-- Validates the net8.0 and netstandard2.0 surfaces against each other on pack. After the first
+    <!-- Validates the net10.0, net8.0 and netstandard2.0 surfaces against each other on pack. After the first
          stable release add <PackageValidationBaselineVersion> to also catch breaking changes. -->
     <EnablePackageValidation>true</EnablePackageValidation>
   </PropertyGroup>
