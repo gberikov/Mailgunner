@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `net8.0` and `net10.0` dependency groups no longer list `System.Text.Json`: with a
   `net10.0` target present, the SDK prunes packages that the shared framework already provides
   (it is in-box on both). The `netstandard2.0` group still carries it, as before.
+- The package no longer declares `Microsoft.Extensions.Configuration`. It was never referenced by
+  the library: repository-wide transitive pinning promoted it to a direct dependency because a
+  `PackageVersion` entry exists for the test project. Pinning is now off for the packable project,
+  so the published dependency list contains only what the library actually references. Consumers
+  are unaffected — the package still reaches them through
+  `Microsoft.Extensions.Options.ConfigurationExtensions`, at the same 8.0.0.
 
 ## [0.1.0] - 2026-09-03
 
