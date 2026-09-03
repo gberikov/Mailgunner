@@ -19,15 +19,11 @@ public sealed class MailgunFile
     /// The optional content (MIME) type. When null or blank, <c>application/octet-stream</c> is used on
     /// the wire; the file name is not inspected to infer a type.
     /// </param>
-    /// <exception cref="ArgumentException"><paramref name="fileName"/> is null, empty, or whitespace.</exception>
+    /// <exception cref="ArgumentException"><paramref name="fileName"/> is null, empty, or whitespace, or contains a control character or a double quote.</exception>
     /// <exception cref="ArgumentNullException"><paramref name="content"/> is null.</exception>
     public MailgunFile(string fileName, byte[] content, string? contentType = null)
     {
-        if (string.IsNullOrWhiteSpace(fileName))
-        {
-            throw new ArgumentException("A file name is required.", nameof(fileName));
-        }
-
+        ValidateFileName(fileName);
         Content = content ?? throw new ArgumentNullException(nameof(content));
         FileName = fileName;
         ContentType = contentType;
@@ -42,19 +38,37 @@ public sealed class MailgunFile
     /// <param name="openContent">Opens a fresh stream over the content. Required.</param>
     /// <param name="contentType">The optional MIME type; <c>application/octet-stream</c> when null/blank.</param>
     /// <param name="length">The optional content length, letting the request carry <c>Content-Length</c> instead of chunked encoding.</param>
-    /// <exception cref="ArgumentException"><paramref name="fileName"/> is null, empty, or whitespace.</exception>
+    /// <exception cref="ArgumentException"><paramref name="fileName"/> is null, empty, or whitespace, or contains a control character or a double quote.</exception>
     /// <exception cref="ArgumentNullException"><paramref name="openContent"/> is null.</exception>
     public MailgunFile(string fileName, Func<Stream> openContent, string? contentType = null, long? length = null)
+    {
+        ValidateFileName(fileName);
+        OpenContent = openContent ?? throw new ArgumentNullException(nameof(openContent));
+        FileName = fileName;
+        ContentType = contentType;
+        Length = length;
+    }
+
+    /// <summary>
+    /// The file name is carried in the part's <c>Content-Disposition</c> header, where a control character
+    /// or a double quote is either a header-injection vector or a value the transport rejects late, at send
+    /// time, with a <see cref="FormatException"/>. Reject both up front under the library's own contract.
+    /// </summary>
+    private static readonly char[] Quote = { '"' };
+
+    private static void ValidateFileName(string fileName)
     {
         if (string.IsNullOrWhiteSpace(fileName))
         {
             throw new ArgumentException("A file name is required.", nameof(fileName));
         }
 
-        OpenContent = openContent ?? throw new ArgumentNullException(nameof(openContent));
-        FileName = fileName;
-        ContentType = contentType;
-        Length = length;
+        // IndexOfAny: string.Contains(char) does not exist on netstandard2.0.
+        if (Internal.TextGuards.ContainsControlCharacter(fileName) || fileName.IndexOfAny(Quote) >= 0)
+        {
+            throw new ArgumentException(
+                "A file name must not contain control characters or double quotes.", nameof(fileName));
+        }
     }
 
     /// <summary>

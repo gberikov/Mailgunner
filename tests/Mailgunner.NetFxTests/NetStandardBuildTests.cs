@@ -69,6 +69,26 @@ public class NetStandardBuildTests
     }
 
     [Fact]
+    public void Jitter_sources_started_on_the_same_tick_do_not_share_a_sequence()
+    {
+        // On .NET Framework `new Random()` seeds from Environment.TickCount, so per-thread instances
+        // created within the same millisecond would draw identical jitter. Release 8 threads together
+        // and require at least two distinct first draws.
+        const int threads = 8;
+        var values = new double[threads];
+        using var gate = new Barrier(threads);
+        var workers = Enumerable.Range(0, threads).Select(i => new Thread(() =>
+        {
+            gate.SignalAndWait();
+            values[i] = new Mailgunner.Internal.DefaultRetryRandom().NextDouble();
+        })).ToList();
+        workers.ForEach(t => t.Start());
+        workers.ForEach(t => t.Join());
+
+        Assert.True(values.Distinct().Count() > 1, "all threads drew the same first jitter value");
+    }
+
+    [Fact]
     public async Task Safe_send_mode_marks_requests_via_the_properties_bag()
     {
         var stub = new NetFxStubHandler((HttpStatusCode.ServiceUnavailable, "{\"message\":\"busy\"}"));

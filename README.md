@@ -3,9 +3,9 @@
 Lightweight, modern, unofficial .NET client for the [Mailgun](https://www.mailgun.com/)
 (Sinch) REST API, focused on bulk personalized email delivery.
 
-> **Status:** `0.2.0` — second release. Adds named clients, one-click List-Unsubscribe, domain webhook
-> management, inline-body batches, stream attachments, a safe-by-default send retry mode, and fixes the
-> webhook path, suppression timestamps and JSON add bodies found in review. See the
+> **Status:** `0.1.0` — first release. Sending (single, templated, personalized batches), suppression
+> lists, domain webhook management, webhook signature verification, named clients, one-click
+> List-Unsubscribe, stream attachments and a safe-by-default send retry mode. See the
 > [changelog](https://github.com/gberikov/Mailgunner/blob/master/CHANGELOG.md).
 
 ## Highlights
@@ -23,7 +23,7 @@ Lightweight, modern, unofficial .NET client for the [Mailgun](https://www.mailgu
 dotnet add package Mailgunner
 ```
 
-> Pre-releases are published on `v*` tags; see [docs/RELEASING.md](docs/RELEASING.md).
+> Releases are published on `v*` tags; see [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Quickstart
 
@@ -217,10 +217,14 @@ Mailgun account default in effect.
 - **Scheduled delivery** — `Options.DeliveryTime` (a `DateTimeOffset`) is sent as an **RFC 2822**
   date-time with a **numeric** timezone offset (for example `Thu, 25 Jun 2026 14:00:00 +0000`), never
   a named zone.
-- **Custom headers & variables** — `Options.CustomHeaders` (`h:` prefix) and `Options.CustomVariables`
-  (`v:` prefix, string values).
+- **Custom headers & variables** — `Options.CustomHeaders` (`h:` prefix; names are case-insensitive, like
+  mail headers) and `Options.CustomVariables` (`v:` prefix, string values; Mailgun truncates variables
+  above 4KB).
 - **Reply-To** — `message.ReplyTo = "support@example.com"` emits the `Reply-To` header.
-- **Delivery controls** — `RequireTls`, `SkipVerification`, `Tracking` (master toggle), `SendingIp`, `SendingIpPool`, `TimeZoneLocalize`; `MailgunMessage.AmpHtml` for an AMP part.
+- **Delivery controls** — `RequireTls`, `SkipVerification`, `Tracking` (master toggle),
+  `TrackingPixelLocationTop`, `SendingIp`, `SendingIpPool`, `DeliverWithin`, `DeliveryTimeOptimizePeriod`,
+  `TimeZoneLocalize`, `Dkim`, `SecondaryDkim`/`SecondaryDkimPublic`, `ArchiveTo`, `SuppressHeaders`;
+  `MailgunMessage.AmpHtml` for an AMP part.
 
 > **16KB limit.** Mailgun caps the **combined** size of the option (`o:`), custom-header (`h:`),
 > custom-variable (`v:`), and template (`t:`) parameters at **16KB per request**. Mailgunner does not
@@ -272,9 +276,14 @@ services.AddMailgunner(o =>
     o.Retry.MaxSingleWait = TimeSpan.FromSeconds(30);   // mandatory cap on any single wait (>= BaseDelay)
     o.Retry.UseJitter = true;                           // bounded additive jitter
     o.Retry.SendRetryMode = SendRetryMode.Safe;         // Safe (429 only) or Full
-    o.Retry.AttemptTimeout = TimeSpan.FromSeconds(100);  // cap on a single attempt; HttpClient.Timeout is set to infinite
+    o.Retry.AttemptTimeout = TimeSpan.FromSeconds(100);  // cap on a single attempt, up to the response headers
 });
 ```
+
+The typed `HttpClient.Timeout` is set to the worst case over every attempt and wait,
+`(MaxRetryAttempts + 1) × AttemptTimeout + MaxRetryAttempts × MaxSingleWait` (490 s with the defaults), so a
+stalled response body, which `HttpClient` reads outside the per-attempt timeout, can never hang a caller
+that passed no `CancellationToken`.
 
 ## Suppression lists
 
@@ -319,6 +328,26 @@ await client.Suppressions.Complaints.ClearAsync(ct);                            
   list.
 - Any non-success response — including a not-found `GetAsync`/`RemoveAsync` — surfaces a
   `MailgunnerException` carrying the HTTP status code and raw response body.
+
+## Domain webhooks
+
+`client.Webhooks` manages the callback URLs Mailgun invokes for each delivery event of the domain
+(Mailgun's v3 domain-webhook endpoints). A registration is keyed by one `WebhookEventType` (`Accepted`,
+`Delivered`, `Opened`, `Clicked`, `Unsubscribed`, `Complained`, `PermanentFail`, `TemporaryFail`) and
+carries up to three absolute `http(s)` URLs:
+
+```csharp
+await client.Webhooks.CreateAsync(WebhookEventType.Delivered, new[] { "https://app.example.com/hooks/mailgun" }, ct);
+await client.Webhooks.CreateAsync(new[] { WebhookEventType.Complained, WebhookEventType.Unsubscribed }, "https://app.example.com/hooks/mailgun", ct);
+IReadOnlyList<WebhookRegistration> all = await client.Webhooks.ListAsync(ct);
+WebhookRegistration one = await client.Webhooks.GetAsync(WebhookEventType.Delivered, ct); // 404 → MailgunnerException
+await client.Webhooks.UpdateAsync(WebhookEventType.Delivered, new[] { "https://app.example.com/hooks/v2" }, ct);
+await client.Webhooks.DeleteAsync(WebhookEventType.Delivered, ct);
+```
+
+The multi-event overload issues one create per distinct event type, in order, and is fail-fast with no
+rollback. A URL that is not an absolute `http`/`https` URL is rejected with `ArgumentException` before any
+request.
 
 ## Webhook signature verification
 
@@ -371,8 +400,13 @@ bool authentic = MailgunWebhookSignature.Verify(
   suppression and webhook DTOs use source generation and are unaffected.
 - **Duplicate delivery vs. retries.** A send is retried only on HTTP 429 by default (`SendRetryMode.Safe`); with
   `SendRetryMode.Full` a lost response can lead to the same message being delivered twice.
-- **Timeouts.** Each attempt is bounded by `Retry.AttemptTimeout`; the typed `HttpClient.Timeout` is infinite.
-  The worst-case wall time of one call is `(MaxRetryAttempts + 1) × AttemptTimeout + Σ waits`.
+- **Timeouts.** Each attempt is bounded by `Retry.AttemptTimeout` up to the response headers; the typed
+  `HttpClient.Timeout` bounds the whole call, body reads included, at
+  `(MaxRetryAttempts + 1) × AttemptTimeout + MaxRetryAttempts × MaxSingleWait`.
+- **Transport failures are not `MailgunnerException`.** A response, success or failure, always maps to a
+  result or a `MailgunnerException`. When no response is obtained, the underlying exception surfaces after
+  the retry budget: `HttpRequestException` (connection/DNS), `TimeoutException` (an attempt exceeded
+  `AttemptTimeout`), or `TaskCanceledException` (the overall `HttpClient.Timeout` elapsed).
 - **Batch failures.** `SendBatchAsync` is fail-fast; `MailgunnerException.AcceptedResults` / `FailedChunkIndex`
   tell you which chunks were already accepted so you can resume from the failed one.
 - **16KB parameter cap** on `o:`/`h:`/`v:`/`t:` fields is not enforced client-side (see

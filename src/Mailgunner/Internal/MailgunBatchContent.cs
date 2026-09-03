@@ -35,32 +35,9 @@ internal static class MailgunBatchContent
             throw new ArgumentException("A sender (From) is required.", nameof(message));
         }
 
-        var hasBody = !string.IsNullOrEmpty(message.Text) || !string.IsNullOrEmpty(message.Html);
-        var hasTemplate = !string.IsNullOrWhiteSpace(message.Template);
-
-        if (!hasBody && !hasTemplate)
-        {
-            throw new ArgumentException(
-                "A batch send requires a Template name or an inline body (Text or Html).", nameof(message));
-        }
-
-        if (hasBody && hasTemplate)
-        {
-            throw new ArgumentException(
-                "A batch cannot have both a Template and an inline body (Text or Html); supply one or the other.",
-                nameof(message));
-        }
-
-        var hasTemplateData = message.TemplateVariables.Count > 0
-            || !string.IsNullOrWhiteSpace(message.TemplateVersion)
-            || message.GenerateTextFromTemplate;
-
-        if (hasTemplateData && !hasTemplate)
-        {
-            throw new ArgumentException(
-                "Template variables, a template version, or a generated-text request require a Template name.",
-                nameof(message));
-        }
+        MailgunMessageContent.ValidateBodyOrTemplate(
+            message.Text, message.Html, message.Template, message.TemplateVersion,
+            message.GenerateTextFromTemplate, message.TemplateVariables.Count, nameof(message));
 
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var recipient in message.Recipients)
@@ -134,35 +111,9 @@ internal static class MailgunBatchContent
             MailgunHttp.AddField(content, "subject", message.Subject);
         }
 
-        if (!string.IsNullOrEmpty(message.Text))
-        {
-            MailgunHttp.AddField(content, "text", message.Text!);
-        }
-
-        if (!string.IsNullOrEmpty(message.Html))
-        {
-            MailgunHttp.AddField(content, "html", message.Html!);
-        }
-
-        if (!string.IsNullOrWhiteSpace(message.Template))
-        {
-            MailgunHttp.AddField(content, "template", message.Template!);
-
-            if (!string.IsNullOrWhiteSpace(message.TemplateVersion))
-            {
-                MailgunHttp.AddField(content, "t:version", message.TemplateVersion!);
-            }
-
-            if (message.GenerateTextFromTemplate)
-            {
-                MailgunHttp.AddField(content, "t:text", "yes");
-            }
-
-            if (message.TemplateVariables.Count > 0)
-            {
-                MailgunHttp.AddField(content, "t:variables", System.Text.Json.JsonSerializer.Serialize(message.TemplateVariables));
-            }
-        }
+        MailgunMessageContent.AppendBody(
+            content, message.Text, message.Html, message.Template, message.TemplateVersion,
+            message.GenerateTextFromTemplate, message.TemplateVariables);
 
         MailgunHttp.AddField(content, "recipient-variables", SerializeRecipientVariables(chunk));
 

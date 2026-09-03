@@ -81,15 +81,50 @@ public static class MailgunnerServiceCollectionExtensions
         }
 
         return services.AddHttpClient<IMailgunnerClient, MailgunnerClient>(static (provider, client) =>
-        {
-            client.Timeout = Timeout.InfiniteTimeSpan; // per-attempt timeout lives in the resilience handler
-            var options = provider.GetRequiredService<IOptions<MailgunnerOptions>>().Value;
-            client.BaseAddress = MailgunRegionEndpoints.ForRegion(options.Region);
+            ConfigureClient(client, provider.GetRequiredService<IOptions<MailgunnerOptions>>().Value))
+        .AddHttpMessageHandler<MailgunResilienceHandler>()
+        .RedactLoggedHeaders(RedactedHeaders);
+    }
 
-            var token = Convert.ToBase64String(Encoding.ASCII.GetBytes($"api:{options.SendingKey.Trim()}"));
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", token);
-        })
-        .AddHttpMessageHandler<MailgunResilienceHandler>();
+    /// <summary>Headers the HTTP client factory's own request/response logging must never print.</summary>
+    private static readonly string[] RedactedHeaders = { "Authorization" };
+
+    /// <summary>The <c>User-Agent</c> product token, versioned from the assembly's informational version.</summary>
+    private static readonly ProductInfoHeaderValue UserAgent = new("Mailgunner", InformationalVersion());
+
+    /// <summary>
+    /// Applies the region base URL, HTTP Basic auth, <c>User-Agent</c>, and the overall timeout to a typed
+    /// client. The overall timeout is the worst case over every attempt and wait,
+    /// <c>(MaxRetryAttempts + 1) × AttemptTimeout + MaxRetryAttempts × MaxSingleWait</c>: the per-attempt
+    /// timeout in the resilience handler covers a request only until its response headers arrive, while
+    /// <see cref="HttpClient"/> reads the response body outside that handler, so this bound is what stops a
+    /// stalled body from hanging a caller that passed no <see cref="CancellationToken"/>.
+    /// </summary>
+    private static void ConfigureClient(HttpClient client, MailgunnerOptions options)
+    {
+        client.Timeout = WorstCaseTimeout(options.Retry);
+        client.BaseAddress = MailgunRegionEndpoints.ForRegion(options.Region);
+        client.DefaultRequestHeaders.UserAgent.Add(UserAgent);
+
+        var token = Convert.ToBase64String(Encoding.ASCII.GetBytes($"api:{options.SendingKey.Trim()}"));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", token);
+    }
+
+    private static TimeSpan WorstCaseTimeout(RetryPolicyOptions retry) =>
+        TimeSpan.FromTicks(
+            (retry.AttemptTimeout.Ticks * (retry.MaxRetryAttempts + 1))
+            + (retry.MaxSingleWait.Ticks * retry.MaxRetryAttempts));
+
+    private static string InformationalVersion()
+    {
+        var version = typeof(MailgunnerClient).Assembly
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), inherit: false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+            .FirstOrDefault()?.InformationalVersion ?? "0.0.0";
+
+        // Drop build metadata ("+sha"): '+' is not a valid header token character.
+        var plus = version.IndexOf('+');
+        return plus < 0 ? version : version.Substring(0, plus);
     }
 
     /// <summary>
@@ -220,14 +255,7 @@ public static class MailgunnerServiceCollectionExtensions
         services.TryAddSingleton<IMailgunnerClientFactory, MailgunnerClientFactory>();
 
         return services.AddHttpClient(NamedClientRegistry.HttpClientName(name), (provider, client) =>
-        {
-            client.Timeout = Timeout.InfiniteTimeSpan; // per-attempt timeout lives in the resilience handler
-            var options = provider.GetRequiredService<IOptionsMonitor<MailgunnerOptions>>().Get(name);
-            client.BaseAddress = MailgunRegionEndpoints.ForRegion(options.Region);
-
-            var token = Convert.ToBase64String(Encoding.ASCII.GetBytes($"api:{options.SendingKey.Trim()}"));
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", token);
-        })
+            ConfigureClient(client, provider.GetRequiredService<IOptionsMonitor<MailgunnerOptions>>().Get(name)))
         .AddHttpMessageHandler(provider =>
         {
             var options = provider.GetRequiredService<IOptionsMonitor<MailgunnerOptions>>().Get(name);
@@ -235,7 +263,8 @@ public static class MailgunnerServiceCollectionExtensions
             var logger = provider.GetRequiredService<ILogger<MailgunResilienceHandler>>();
             var random = provider.GetRequiredService<IRetryRandom>();
             return new MailgunResilienceHandler(timeProvider, options.Retry, logger, random);
-        });
+        })
+        .RedactLoggedHeaders(RedactedHeaders);
     }
 
     /// <summary>

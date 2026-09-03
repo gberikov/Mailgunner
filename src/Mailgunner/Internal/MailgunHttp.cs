@@ -37,6 +37,34 @@ internal static class MailgunHttp
         }
     }
 
+    /// <summary>
+    /// Deserializes a success body with source-generated metadata. A body that is not valid JSON surfaces
+    /// as <see cref="MailgunnerException"/> (status + raw body), the same contract as the send path, rather
+    /// than as a raw <see cref="System.Text.Json.JsonException"/>.
+    /// </summary>
+    /// <typeparam name="T">The wire DTO type.</typeparam>
+    /// <param name="body">The raw response body.</param>
+    /// <param name="typeInfo">The source-generated metadata for <typeparamref name="T"/>.</param>
+    /// <param name="status">The response status code, carried on the exception.</param>
+    /// <returns>The deserialized value, or <see langword="null"/> for a JSON <c>null</c> or empty body.</returns>
+    public static T? Deserialize<T>(string body, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> typeInfo, int status)
+        where T : class
+    {
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return null;
+        }
+
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize(body, typeInfo);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            throw new MailgunnerException(status, body);
+        }
+    }
+
     /// <summary>Appends one string field to a multipart body.</summary>
     /// <param name="content">The multipart body being built.</param>
     /// <param name="name">The field name.</param>

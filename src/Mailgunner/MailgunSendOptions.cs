@@ -50,12 +50,12 @@ public sealed class MailgunSendOptions
 
     /// <summary>
     /// Gets the arbitrary custom message headers. Each entry is emitted as <c>h:&lt;name&gt;</c> carrying
-    /// the supplied value. Names are unique (re-assigning a name replaces its value); the relative
-    /// emission order is immaterial. A blank name is rejected with an <see cref="ArgumentException"/>
-    /// when the request is built.
+    /// the supplied value. Names are unique and, like mail header names, compared case-insensitively
+    /// (re-assigning a name in any casing replaces its value); the relative emission order is immaterial.
+    /// A blank name is rejected with an <see cref="ArgumentException"/> when the request is built.
     /// </summary>
     public IDictionary<string, string> CustomHeaders { get; }
-        = new Dictionary<string, string>(StringComparer.Ordinal);
+        = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Gets the arbitrary custom variables that travel with the message and surface in later
@@ -99,4 +99,34 @@ public sealed class MailgunSendOptions
     /// <c>"9:00AM"</c>) applied on top of <see cref="DeliveryTime"/>; null/blank omits the field.
     /// </summary>
     public string? TimeZoneLocalize { get; set; }
+
+    /// <summary>Gets or sets whether the message is DKIM-signed (<c>o:dkim</c>); null omits the field (account default).</summary>
+    public bool? Dkim { get; set; }
+
+    /// <summary>Gets or sets a second domain key to sign the message with (<c>o:secondary-dkim</c>); null/blank omits the field.</summary>
+    public string? SecondaryDkim { get; set; }
+
+    /// <summary>Gets or sets the public alias of the <see cref="SecondaryDkim"/> domain key (<c>o:secondary-dkim-public</c>); null/blank omits the field.</summary>
+    public string? SecondaryDkimPublic { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum window Mailgun may take to deliver the message (<c>o:deliver-within</c>,
+    /// e.g. <c>"1h30m"</c>); null/blank omits the field.
+    /// </summary>
+    public string? DeliverWithin { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Send Time Optimization window (<c>o:deliverytime-optimize-period</c>, <c>24h</c> to
+    /// <c>72h</c> in <c>[0-9]+h</c> form); null/blank omits the field.
+    /// </summary>
+    public string? DeliveryTimeOptimizePeriod { get; set; }
+
+    /// <summary>Gets or sets whether the open-tracking pixel is placed at the top of the body (<c>o:tracking-pixel-location-top</c>); null omits the field.</summary>
+    public bool? TrackingPixelLocationTop { get; set; }
+
+    /// <summary>Gets or sets a URL that receives a copy of the message by HTTP POST (<c>o:archive-to</c>); null/blank omits the field.</summary>
+    public string? ArchiveTo { get; set; }
+
+    /// <summary>Gets or sets a comma-separated list of <c>X-Mailgun-*</c> headers to strip from the delivered message (<c>o:suppress-headers</c>); null/blank omits the field.</summary>
+    public string? SuppressHeaders { get; set; }
 }

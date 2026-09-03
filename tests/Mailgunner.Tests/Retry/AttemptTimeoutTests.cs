@@ -56,10 +56,12 @@ public class AttemptTimeoutTests
     }
 
     [Fact]
-    public void The_typed_http_client_has_no_overall_timeout()
+    public void The_typed_http_client_timeout_defaults_to_the_worst_case_bound()
     {
         var client = (MailgunnerClient)RetryTestHarness.BuildClient(new StubHttpMessageHandler(HttpStatusCode.OK));
 
-        Assert.Equal(Timeout.InfiniteTimeSpan, client.HttpClient.Timeout);
+        // Defaults: (3 + 1) attempts x 100 s + 3 waits x 30 s. Bounds a stalled response body, which
+        // HttpClient reads outside the attempt timeout.
+        Assert.Equal(TimeSpan.FromSeconds(490), client.HttpClient.Timeout);
     }
 }

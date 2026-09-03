@@ -23,20 +23,15 @@ internal sealed class MailgunnerClient : IMailgunnerClient
         Guard.NotNull(options, nameof(options));
         HttpClient = httpClient;
         _domain = Uri.EscapeDataString(options.Value.Domain.Trim());
-        _suppressions = new Lazy<IMailgunSuppressions>(
-            () => new MailgunSuppressions(HttpClient, _domain));
-        _webhooks = new Lazy<IMailgunWebhooks>(
-            () => new MailgunWebhooks(HttpClient, _domain));
+        Suppressions = new MailgunSuppressions(HttpClient, _domain);
+        Webhooks = new MailgunWebhooks(HttpClient, _domain);
     }
 
-    private readonly Lazy<IMailgunSuppressions> _suppressions;
-    private readonly Lazy<IMailgunWebhooks> _webhooks;
+    /// <inheritdoc />
+    public IMailgunSuppressions Suppressions { get; }
 
     /// <inheritdoc />
-    public IMailgunSuppressions Suppressions => _suppressions.Value;
-
-    /// <inheritdoc />
-    public IMailgunWebhooks Webhooks => _webhooks.Value;
+    public IMailgunWebhooks Webhooks { get; }
 
     /// <summary>
     /// Gets the configured typed HTTP client backing this client. Exposed to the test project

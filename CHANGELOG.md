@@ -7,9 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-09-02
+## [0.1.0] - 2026-09-03
+
+First version published to NuGet. It ships the foundation drafted on 2026-06-24 (listed at the end of
+this file; never tagged or published) together with the review-driven changes below. The Changed,
+Removed, Fixed and Security entries describe changes relative to that unpublished draft.
 
 ### Added
+
+- Send options `Dkim`, `SecondaryDkim`, `SecondaryDkimPublic`, `DeliverWithin`,
+  `DeliveryTimeOptimizePeriod`, `TrackingPixelLocationTop`, `ArchiveTo` and `SuppressHeaders`
+  (`o:dkim`, `o:secondary-dkim`, `o:secondary-dkim-public`, `o:deliver-within`,
+  `o:deliverytime-optimize-period`, `o:tracking-pixel-location-top`, `o:archive-to`, `o:suppress-headers`).
+- Every request carries a `User-Agent: Mailgunner/<version>` header.
+- `WebhookRegistration` has a public constructor, so a hand-written test double of `IMailgunWebhooks`
+  can build the registrations it returns.
 
 - Domain webhook management: a new `client.Webhooks` (`IMailgunWebhooks`) capability area that lists,
   reads, creates, updates, and deletes a domain's webhook registrations over Mailgun's v3 webhook
@@ -87,11 +99,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   duplicate delivery. Suppression and webhook requests are unaffected and keep retrying on the full
   policy. **Upgrade note:** a send that previously retried transient failures now surfaces them after
   one attempt unless you opt into `Full`.
-- **The typed `HttpClient`'s overall `Timeout` is now infinite**; each attempt is bounded instead by
-  the new `RetryPolicyOptions.AttemptTimeout` (default 100 s), so retries and backoff waits are never
-  cut short by the client-level timeout. **Upgrade note:** a caller relying on the previous
-  `HttpClient` default timeout to bound the *whole* call (across all retries) should set
-  `AttemptTimeout` and/or `MaxRetryAttempts` explicitly.
+- **Each attempt is now bounded by the new `RetryPolicyOptions.AttemptTimeout`** (default 100 s, up to
+  the response headers), and the typed `HttpClient`'s overall `Timeout` is set to the worst case over
+  every attempt and wait, `(MaxRetryAttempts + 1) × AttemptTimeout + MaxRetryAttempts × MaxSingleWait`
+  (490 s with the defaults), so retries and backoff waits are never cut short while a stalled response
+  body, which `HttpClient` reads outside the per-attempt timeout, can never hang a caller that passed
+  no `CancellationToken`. **Upgrade note:** a caller relying on the previous 100 s `HttpClient` default
+  to bound the *whole* call should lower `AttemptTimeout` and/or `MaxRetryAttempts`.
+- `MailgunSendOptions.CustomHeaders` compares header names case-insensitively, like mail headers, so
+  `Reply-To` and `reply-to` can no longer both reach the wire.
+- A success response whose body is not valid JSON now surfaces as `MailgunnerException` (status + raw
+  body) from the suppression and webhook operations too, instead of a raw `JsonException`; the send
+  path already behaved this way.
+- Webhook callback URLs must be absolute `http` or `https` URLs; anything else throws
+  `ArgumentException` before any request. The multi-event `CreateAsync` overload registers each distinct
+  event type once, so a repeated event type no longer triggers a service rejection mid-fan-out.
+- Transport failures that yield no response (`HttpRequestException`, `TimeoutException`,
+  `TaskCanceledException`) are now documented on `IMailgunnerClient` and in the README; they were always
+  surfaced unwrapped.
 - MailgunnerException.Message now includes Mailgun's "message" from a JSON error body (truncated to 200 chars).
 - Batch send validates every recipient address up front: a recipient created from a
   `default(EmailAddress)` (blank address) now throws `ArgumentException` before any request instead
@@ -113,8 +138,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Suppression entries' CreatedAt is now populated: Mailgun's "…UTC" timestamps were silently parsed to null.
 - Suppression AddAsync now sends the JSON array shape Mailgun documents; a bare JSON object was rejected.
 - Calling the unnamed AddMailgunner more than once no longer stacks a second retry handler (which multiplied attempts and waits); the latest options still win.
+- The sample reports a `Mailgun:From` or `Mailgun:Recipients:N:Address` setting in `Name <addr>` form
+  as a missing/invalid setting and exits cleanly, instead of crashing with `ArgumentException`.
+- On the netstandard2.0 build, per-thread retry jitter sources are seeded explicitly; on .NET Framework
+  the parameterless `Random` seeds from the clock tick, so threads started together drew identical jitter.
 
 ### Security
+
+- The `Authorization` header is redacted from the HTTP client factory's own request logging
+  (`RedactLoggedHeaders`), so a `Trace`-level logger no longer prints the Basic-auth sending key.
+- `MailgunFile` rejects a file name containing a control character or a double quote with
+  `ArgumentException` at construction; previously such a name surfaced late, at send time, as a transport
+  `FormatException`.
 
 - The sending domain is now percent-encoded in request paths, preventing a domain value containing `/`, `?`, `#` or space from escaping its path segment and rewriting the request target.
 - Suppression-list pagination now validates a caller-supplied cursor before following it: only an
@@ -137,14 +172,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tags), a failing `dotnet list package --vulnerable` audit gate was added to CI, and a Dependabot
   configuration keeps the action pins and NuGet packages current.
 
-## [0.1.0-preview.1] - 2026-06-24
+## Unpublished draft - 2026-06-24
 
-First public **pre-release** to NuGet. Ships the complete `0.1.0` foundation below for early
-feedback while the public API may still evolve; published as a pre-release so it is not
-surfaced as the latest stable version. See [0.1.0](#010---2026-06-24) for the full feature
-set included in this pre-release.
-
-## [0.1.0] - 2026-06-24
+The foundation on which [0.1.0](#010---2026-09-03) builds. It was drafted as `0.1.0` (and a
+`0.1.0-preview.1` pre-release was planned) but never tagged or pushed to nuget.org; it is kept here
+because the 0.1.0 entries above describe their changes relative to it.
 
 ### Added
 
@@ -259,7 +291,5 @@ set included in this pre-release.
   (not failed) when they are absent — and its credential-presence resolver is covered by an offline
   unit test, so the default build/test stay green with no credentials.
 
-[Unreleased]: https://github.com/gberikov/Mailgunner/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/gberikov/Mailgunner/compare/v0.1.0-preview.1...v0.2.0
-[0.1.0-preview.1]: https://github.com/gberikov/Mailgunner/releases/tag/v0.1.0-preview.1
+[Unreleased]: https://github.com/gberikov/Mailgunner/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/gberikov/Mailgunner/releases/tag/v0.1.0

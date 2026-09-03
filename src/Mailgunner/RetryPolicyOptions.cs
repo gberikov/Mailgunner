@@ -50,10 +50,13 @@ public sealed class RetryPolicyOptions
     public SendRetryMode SendRetryMode { get; set; } = SendRetryMode.Safe;
 
     /// <summary>
-    /// Gets or sets the maximum duration of a <em>single</em> attempt (connect, send, and read of the
-    /// response). An attempt exceeding it is abandoned and surfaces as <see cref="TimeoutException"/>,
-    /// which the retry policy treats as a transient transport fault. Replaces the typed client's overall
-    /// <c>HttpClient.Timeout</c>, which the library sets to infinite so backoff waits are never cut short.
+    /// Gets or sets the maximum duration of a <em>single</em> attempt, from connect and send until the
+    /// response <em>headers</em> arrive. An attempt exceeding it is abandoned and surfaces as
+    /// <see cref="TimeoutException"/>, which the retry policy treats as a transient transport fault. The
+    /// response body is read by <c>HttpClient</c> outside this per-attempt bound; it is covered instead by
+    /// the typed client's overall <c>HttpClient.Timeout</c>, which the library sets to the worst case over
+    /// every attempt and wait, <c>(MaxRetryAttempts + 1) × AttemptTimeout + MaxRetryAttempts × MaxSingleWait</c>,
+    /// so backoff waits are never cut short and a stalled body can never hang a caller indefinitely.
     /// Must be <c>&gt; <see cref="TimeSpan.Zero"/></c> and at most one day &#8212; above that,
     /// .NET Framework 4.8's ~24.9-day timer ceiling (the lower of the two ceilings across the
     /// frameworks this library targets) is exceeded and the <em>first</em> attempt of every request

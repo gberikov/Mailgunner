@@ -11,9 +11,10 @@ public class SuppressionErrorTests
     private const string SendingKey = "key-123";
     private const string ErrorBody = "{\"message\":\"server error\"}";
 
-    private static (IMailgunnerClient Client, StubHttpMessageHandler Stub) BuildClient(HttpStatusCode status)
+    private static (IMailgunnerClient Client, StubHttpMessageHandler Stub) BuildClient(
+        HttpStatusCode status, string body = ErrorBody)
     {
-        var stub = new StubHttpMessageHandler(status, ErrorBody);
+        var stub = new StubHttpMessageHandler(status, body);
         var services = new ServiceCollection();
         services.AddMailgunner(Domain, SendingKey, MailgunRegion.Us)
                 .ConfigurePrimaryHttpMessageHandler(() => stub);
@@ -81,6 +82,30 @@ public class SuppressionErrorTests
 
         Assert.Equal(500, ex.StatusCode);
         Assert.Equal(ErrorBody, ex.ResponseBody);
+    }
+
+    [Fact]
+    public async Task List_with_a_malformed_success_body_surfaces_the_typed_error()
+    {
+        var (client, _) = BuildClient(HttpStatusCode.OK, "not json");
+
+        var ex = await Assert.ThrowsAsync<MailgunnerException>(
+            () => client.Suppressions.Bounces.ListPageAsync());
+
+        Assert.Equal(200, ex.StatusCode);
+        Assert.Equal("not json", ex.ResponseBody);
+    }
+
+    [Fact]
+    public async Task Get_with_a_malformed_success_body_surfaces_the_typed_error()
+    {
+        var (client, _) = BuildClient(HttpStatusCode.OK, "not json");
+
+        var ex = await Assert.ThrowsAsync<MailgunnerException>(
+            () => client.Suppressions.Unsubscribes.GetAsync("a@x.com"));
+
+        Assert.Equal(200, ex.StatusCode);
+        Assert.Equal("not json", ex.ResponseBody);
     }
 
     [Fact]

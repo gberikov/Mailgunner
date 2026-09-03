@@ -12,6 +12,7 @@ namespace Mailgunner.Internal;
 /// <typeparam name="TDto">The read wire DTO (e.g. <see cref="BounceDto"/>).</typeparam>
 /// <typeparam name="TAddDto">The add-body wire DTO (e.g. <see cref="AddBounceDto"/>).</typeparam>
 internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressionList<TEntry>
+    where TDto : class
 {
     private readonly HttpClient _httpClient;
     private readonly string _domain;
@@ -111,7 +112,7 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
             new HttpRequestMessage(HttpMethod.Get, ItemUri(address)),
             cancellationToken).ConfigureAwait(false);
 
-        var dto = System.Text.Json.JsonSerializer.Deserialize(body, _entryTypeInfo);
+        var dto = MailgunHttp.Deserialize(body, _entryTypeInfo, status);
         if (dto is null)
         {
             throw new MailgunnerException(status, body);
@@ -258,12 +259,12 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
     private async Task<SuppressionPage<TEntry>> FetchPageAsync(
         Uri uri, CancellationToken cancellationToken)
     {
-        var (_, body) = await MailgunHttp.SendAsync(
+        var (status, body) = await MailgunHttp.SendAsync(
             _httpClient,
             new HttpRequestMessage(HttpMethod.Get, uri),
             cancellationToken).ConfigureAwait(false);
 
-        var page = System.Text.Json.JsonSerializer.Deserialize(body, _pageTypeInfo);
+        var page = MailgunHttp.Deserialize(body, _pageTypeInfo, status);
         var items = new List<TEntry>();
         if (page?.Items is not null)
         {

@@ -6,6 +6,15 @@ namespace Mailgunner;
 /// Webhook signature verification is a standalone, network-free primitive
 /// (<see cref="MailgunWebhookSignature"/>), not a member of this client.
 /// </summary>
+/// <remarks>
+/// A response from the service, success or failure, is always mapped to a result or a
+/// <see cref="MailgunnerException"/>. A failure that yields <em>no</em> response is not: after the retry
+/// budget (see <see cref="RetryPolicyOptions"/>) it surfaces as the underlying transport exception, an
+/// <see cref="HttpRequestException"/> (connection refused/reset, DNS failure), a
+/// <see cref="TimeoutException"/> (a single attempt exceeded <see cref="RetryPolicyOptions.AttemptTimeout"/>),
+/// or a <see cref="TaskCanceledException"/> (the overall worst-case <c>HttpClient.Timeout</c> elapsed).
+/// The same applies to every operation under <see cref="Suppressions"/> and <see cref="Webhooks"/>.
+/// </remarks>
 public interface IMailgunnerClient
 {
     /// <summary>
@@ -41,6 +50,8 @@ public interface IMailgunnerClient
     /// The service returned a non-success response, or a success response whose body could not be
     /// parsed into a result. Exposes the HTTP status code and the raw response body.
     /// </exception>
+    /// <exception cref="HttpRequestException">No response was obtained because of a transport fault (see the type remarks).</exception>
+    /// <exception cref="TimeoutException">No response was obtained within <see cref="RetryPolicyOptions.AttemptTimeout"/> (see the type remarks).</exception>
     Task<SendResult> SendAsync(
         MailgunMessage message,
         CancellationToken cancellationToken = default);
@@ -70,6 +81,8 @@ public interface IMailgunnerClient
     /// have been sent and are not rolled back. <see cref="MailgunnerException.FailedChunkIndex"/> and
     /// <see cref="MailgunnerException.AcceptedResults"/> show which chunks were already accepted.
     /// </exception>
+    /// <exception cref="HttpRequestException">A chunk obtained no response because of a transport fault (see the type remarks); earlier chunks are not rolled back.</exception>
+    /// <exception cref="TimeoutException">A chunk obtained no response within <see cref="RetryPolicyOptions.AttemptTimeout"/> (see the type remarks); earlier chunks are not rolled back.</exception>
     Task<IReadOnlyList<SendResult>> SendBatchAsync(
         MailgunBatchMessage message,
         CancellationToken cancellationToken = default);

@@ -54,10 +54,7 @@ internal static class MailgunOptionsContent
         }
 
         // 3. Open tracking — omitted when null.
-        if (options.TrackingOpens is bool trackOpens)
-        {
-            MailgunHttp.AddField(content, "o:tracking-opens", trackOpens ? "yes" : "no");
-        }
+        AddYesNo(content, "o:tracking-opens", options.TrackingOpens);
 
         // 4. Click tracking — omitted when null; supports htmlonly.
         if (options.TrackingClicks is ClickTracking trackClicks)
@@ -72,6 +69,14 @@ internal static class MailgunOptionsContent
         AddIfPresent(content, "o:sending-ip", options.SendingIp);
         AddIfPresent(content, "o:sending-ip-pool", options.SendingIpPool);
         AddIfPresent(content, "o:time-zone-localize", options.TimeZoneLocalize);
+        AddYesNo(content, "o:dkim", options.Dkim);
+        AddIfPresent(content, "o:secondary-dkim", options.SecondaryDkim);
+        AddIfPresent(content, "o:secondary-dkim-public", options.SecondaryDkimPublic);
+        AddIfPresent(content, "o:deliver-within", options.DeliverWithin);
+        AddIfPresent(content, "o:deliverytime-optimize-period", options.DeliveryTimeOptimizePeriod);
+        AddYesNo(content, "o:tracking-pixel-location-top", options.TrackingPixelLocationTop);
+        AddIfPresent(content, "o:archive-to", options.ArchiveTo);
+        AddIfPresent(content, "o:suppress-headers", options.SuppressHeaders);
 
         // 5. Scheduled delivery time — RFC 2822 with a numeric offset.
         if (options.DeliveryTime is DateTimeOffset deliveryTime)

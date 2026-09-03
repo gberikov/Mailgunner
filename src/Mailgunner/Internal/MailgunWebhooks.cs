@@ -26,12 +26,12 @@ internal sealed class MailgunWebhooks : IMailgunWebhooks
     public async Task<IReadOnlyList<WebhookRegistration>> ListAsync(
         CancellationToken cancellationToken = default)
     {
-        var (_, body) = await MailgunHttp.SendAsync(
+        var (status, body) = await MailgunHttp.SendAsync(
             _httpClient,
             new HttpRequestMessage(HttpMethod.Get, RootUri()),
             cancellationToken).ConfigureAwait(false);
 
-        var dto = System.Text.Json.JsonSerializer.Deserialize(body, WebhookJsonContext.Default.WebhookListDto);
+        var dto = MailgunHttp.Deserialize(body, WebhookJsonContext.Default.WebhookListDto, status);
         var result = new List<WebhookRegistration>();
         if (dto?.Webhooks is not null)
         {
@@ -102,18 +102,24 @@ internal sealed class MailgunWebhooks : IMailgunWebhooks
             throw new ArgumentException("At least one event type is required.", nameof(eventTypes));
         }
 
-        if (string.IsNullOrWhiteSpace(url))
+        var single = ValidateUrls(new[] { url }, nameof(url));
+
+        // Distinct, in first-seen order: a second create for the same event type is rejected by the service.
+        var types = new List<WebhookEventType>();
+        var seen = new HashSet<WebhookEventType>();
+        foreach (var eventType in eventTypes)
         {
-            throw new ArgumentException("A callback URL is required.", nameof(url));
+            if (seen.Add(eventType))
+            {
+                types.Add(eventType);
+            }
         }
 
-        var types = new List<WebhookEventType>(eventTypes);
         if (types.Count == 0)
         {
             throw new ArgumentException("At least one event type is required.", nameof(eventTypes));
         }
 
-        var single = new[] { url };
         var results = new List<WebhookRegistration>(types.Count);
         foreach (var eventType in types)
         {
@@ -167,8 +173,9 @@ internal sealed class MailgunWebhooks : IMailgunWebhooks
 
     /// <summary>
     /// Materializes the supplied URLs, dropping null/blank entries, and requires at least one to remain.
-    /// The library does not validate URL format beyond requiring a non-blank URL; service-side validation
-    /// is surfaced via <see cref="MailgunnerException"/>.
+    /// Each remaining URL must be an absolute <c>http</c> or <c>https</c> URI, so an obviously malformed
+    /// callback fails fast under the <see cref="ArgumentException"/> contract instead of as a service
+    /// rejection; any further service-side validation still surfaces via <see cref="MailgunnerException"/>.
     /// </summary>
     private static List<string> ValidateUrls(
         IEnumerable<string> urls, string paramName)
@@ -181,10 +188,19 @@ internal sealed class MailgunWebhooks : IMailgunWebhooks
         var list = new List<string>();
         foreach (var url in urls)
         {
-            if (!string.IsNullOrWhiteSpace(url))
+            if (string.IsNullOrWhiteSpace(url))
             {
-                list.Add(url);
+                continue;
             }
+
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)
+                || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+            {
+                throw new ArgumentException(
+                    $"A callback URL must be an absolute http or https URL; got '{url}'.", paramName);
+            }
+
+            list.Add(url);
         }
 
         if (list.Count == 0)
@@ -207,7 +223,7 @@ internal sealed class MailgunWebhooks : IMailgunWebhooks
         string body,
         IReadOnlyList<string>? fallbackUrls = null)
     {
-        var envelope = System.Text.Json.JsonSerializer.Deserialize(body, WebhookJsonContext.Default.WebhookEnvelopeDto);
+        var envelope = MailgunHttp.Deserialize(body, WebhookJsonContext.Default.WebhookEnvelopeDto, status);
         if (envelope?.Webhook is null)
         {
             if (fallbackUrls is not null)
