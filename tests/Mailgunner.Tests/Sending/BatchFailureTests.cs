@@ -54,6 +54,9 @@ public class BatchFailureTests
         Assert.Equal(failureBody, ex.ResponseBody);
         // Only 2 requests issued; the 3rd chunk is never sent (fail-fast).
         Assert.Equal(2, stub.Requests.Count);
+        Assert.Equal(1, ex.FailedChunkIndex);
+        Assert.Single(ex.AcceptedResults); // chunk 0 was accepted before chunk 1 failed
+        Assert.Equal("<x@mg>", ex.AcceptedResults[0].Id);
     }
 
     [Fact]

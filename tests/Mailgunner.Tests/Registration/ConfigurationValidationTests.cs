@@ -78,6 +78,63 @@ public class ConfigurationValidationTests
         Assert.Contains(ex.Failures, f => f.Contains("region", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public void Non_positive_attempt_timeout_fails_at_startup()
+    {
+        var ex = ValidateThrows(o =>
+        {
+            o.Domain = "mg.example.com";
+            o.SendingKey = "key-123";
+            o.Region = MailgunRegion.Us;
+            o.Retry.AttemptTimeout = TimeSpan.Zero;
+        });
+
+        Assert.Contains(ex.Failures, f => f.Contains("AttemptTimeout", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void More_than_ten_retry_attempts_fails_at_startup()
+    {
+        var ex = ValidateThrows(o =>
+        {
+            o.Domain = "mg.example.com";
+            o.SendingKey = "key-123";
+            o.Region = MailgunRegion.Us;
+            o.Retry.MaxRetryAttempts = 11;
+        });
+
+        Assert.Contains(ex.Failures, f => f.Contains("MaxRetryAttempts", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Max_single_wait_above_the_platform_timer_ceiling_fails_at_startup()
+    {
+        var ex = ValidateThrows(o =>
+        {
+            o.Domain = "mg.example.com";
+            o.SendingKey = "key-123";
+            o.Region = MailgunRegion.Us;
+            o.Retry.BaseDelay = TimeSpan.FromDays(2);
+            o.Retry.MaxSingleWait = TimeSpan.FromDays(2);
+        });
+
+        Assert.Contains(ex.Failures, f => f.Contains("MaxSingleWait", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Attempt_timeout_above_the_platform_timer_ceiling_fails_at_startup()
+    {
+        var ex = ValidateThrows(o =>
+        {
+            o.Domain = "mg.example.com";
+            o.SendingKey = "key-123";
+            o.Region = MailgunRegion.Us;
+            o.Retry.AttemptTimeout = TimeSpan.FromDays(2);
+        });
+
+        Assert.Contains(ex.Failures, f => f.Contains("AttemptTimeout", StringComparison.Ordinal));
+    }
+
     private static OptionsValidationException ValidateThrows(Action<MailgunnerOptions> configure)
     {
         var services = new ServiceCollection();

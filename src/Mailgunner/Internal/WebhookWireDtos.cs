@@ -9,7 +9,7 @@ internal sealed class WebhookUrlsDto
 {
     /// <summary>Gets or sets the callback URL(s) registered for an event type.</summary>
     [System.Text.Json.Serialization.JsonPropertyName("urls")]
-    public System.Collections.Generic.List<string>? Urls { get; set; }
+    public List<string>? Urls { get; set; }
 }
 
 /// <summary>
@@ -32,7 +32,7 @@ internal sealed class WebhookListDto
 {
     /// <summary>Gets or sets the per-event-type webhook map, keyed by wire token.</summary>
     [System.Text.Json.Serialization.JsonPropertyName("webhooks")]
-    public System.Collections.Generic.Dictionary<string, WebhookUrlsDto?>? Webhooks { get; set; }
+    public Dictionary<string, WebhookUrlsDto?>? Webhooks { get; set; }
 }
 
 /// <summary>
@@ -48,7 +48,7 @@ internal static class WebhookEventTypes
     /// </summary>
     /// <param name="eventType">The event type.</param>
     /// <returns>The wire token.</returns>
-    /// <exception cref="System.ArgumentOutOfRangeException"><paramref name="eventType"/> is not a defined value.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="eventType"/> is not a defined value.</exception>
     public static string ToToken(WebhookEventType eventType) => eventType switch
     {
         WebhookEventType.Delivered => "delivered",
@@ -58,7 +58,8 @@ internal static class WebhookEventTypes
         WebhookEventType.Complained => "complained",
         WebhookEventType.PermanentFail => "permanent_fail",
         WebhookEventType.TemporaryFail => "temporary_fail",
-        _ => throw new System.ArgumentOutOfRangeException(
+        WebhookEventType.Accepted => "accepted",
+        _ => throw new ArgumentOutOfRangeException(
             nameof(eventType), eventType, "Unknown webhook event type."),
     };
 
@@ -78,6 +79,7 @@ internal static class WebhookEventTypes
         "complained" => WebhookEventType.Complained,
         "permanent_fail" => WebhookEventType.PermanentFail,
         "temporary_fail" => WebhookEventType.TemporaryFail,
+        "accepted" => WebhookEventType.Accepted,
         _ => null,
     };
 }

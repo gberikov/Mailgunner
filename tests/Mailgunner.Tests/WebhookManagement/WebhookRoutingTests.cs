@@ -14,7 +14,7 @@ public class WebhookRoutingTests
         await client.Webhooks.ListAsync();
 
         Assert.Equal("api.mailgun.net", stub.LastRequestUri!.Host);
-        Assert.Contains($"/v3/{WebhookHarness.Domain}/webhooks", stub.LastRequestUri!.AbsolutePath);
+        Assert.Contains($"/v3/domains/{WebhookHarness.Domain}/webhooks", stub.LastRequestUri!.AbsolutePath);
         Assert.Equal("Basic", stub.LastRequest!.Headers.Authorization!.Scheme);
     }
 
@@ -37,6 +37,6 @@ public class WebhookRoutingTests
 
         await client.Webhooks.GetAsync(WebhookEventType.Delivered);
 
-        Assert.EndsWith("/v3/other.example.org/webhooks/delivered", stub.LastRequestUri!.AbsolutePath);
+        Assert.EndsWith("/v3/domains/other.example.org/webhooks/delivered", stub.LastRequestUri!.AbsolutePath);
     }
 }

@@ -33,6 +33,22 @@ public class WebhookCreateMultiEventTests
     }
 
     [Fact]
+    public async Task Fan_out_creates_each_event_type_once_even_when_the_input_repeats_it()
+    {
+        var stub = new StubHttpMessageHandler(HttpStatusCode.OK, WebhookHarness.Envelope("https://a"));
+        var client = WebhookHarness.BuildClient(stub);
+        var repeated = new[] { WebhookEventType.Delivered, WebhookEventType.Delivered, WebhookEventType.Opened };
+
+        var registrations = await client.Webhooks.CreateAsync(repeated, "https://a");
+
+        // A second create for the same event type would be rejected by Mailgun mid-fan-out.
+        Assert.Equal(2, stub.Requests.Count);
+        Assert.Equal("delivered", stub.Requests[0].Value("id"));
+        Assert.Equal("opened", stub.Requests[1].Value("id"));
+        Assert.Equal(new[] { WebhookEventType.Delivered, WebhookEventType.Opened }, registrations.Select(r => r.EventType));
+    }
+
+    [Fact]
     public async Task Fan_out_is_fail_fast_with_no_rollback_on_the_first_non_success()
     {
         const string failureBody = "{\"message\":\"bad url\"}";

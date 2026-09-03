@@ -4,16 +4,16 @@ namespace Mailgunner.Internal;
 /// The single source of truth for which named Mailgunner clients have been registered in a
 /// container. Populated at registration time (so duplicate and blank names are caught early) and
 /// consulted by <see cref="MailgunnerClientFactory"/> at resolution time (so an unknown name fails
-/// clearly instead of silently yielding a default <see cref="System.Net.Http.HttpClient"/>). Names
-/// are compared with <see cref="System.StringComparer.Ordinal"/> (case-sensitive).
+/// clearly instead of silently yielding a default <see cref="HttpClient"/>). Names
+/// are compared with <see cref="StringComparer.Ordinal"/> (case-sensitive).
 /// </summary>
 internal sealed class NamedClientRegistry
 {
     /// <summary>The prefix applied to a logical client name to form its typed-<c>HttpClient</c> name.</summary>
     public const string HttpClientNamePrefix = "Mailgunner:";
 
-    private readonly System.Collections.Generic.HashSet<string> _names =
-        new(System.StringComparer.Ordinal);
+    private readonly HashSet<string> _names =
+        new(StringComparer.Ordinal);
 
     /// <summary>
     /// Records <paramref name="name"/> as registered.
@@ -31,12 +31,12 @@ internal sealed class NamedClientRegistry
     /// Gets an ordinal-sorted snapshot of the registered names, used to enrich the unknown-name error
     /// message. Never contains any secret material.
     /// </summary>
-    public System.Collections.Generic.IReadOnlyList<string> RegisteredNames
+    public IReadOnlyList<string> RegisteredNames
     {
         get
         {
-            var snapshot = new System.Collections.Generic.List<string>(_names);
-            snapshot.Sort(System.StringComparer.Ordinal);
+            var snapshot = new List<string>(_names);
+            snapshot.Sort(StringComparer.Ordinal);
             return snapshot;
         }
     }

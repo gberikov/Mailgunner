@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <!-- Supplies net48 reference assemblies so this project compiles on runners (e.g. Linux CI)
+         without a .NET Framework 4.8 targeting pack installed. -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- net48 does not implicitly reference System.Net.Http like the SDK-style net8.0/netstandard2.0 targets do. -->
+    <Reference Include="System.Net.Http" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Resolves the netstandard2.0 asset of the library, exercising the #if !NET8_0_OR_GREATER branches. -->
+    <ProjectReference Include="..\..\src\Mailgunner\Mailgunner.csproj" />
+  </ItemGroup>
+
+</Project>

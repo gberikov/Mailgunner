@@ -16,8 +16,8 @@ public interface IMailgunWebhooks
     /// <param name="cancellationToken">A token that cancels the request.</param>
     /// <returns>One registration per registered event type; an empty list when none are configured.</returns>
     /// <exception cref="MailgunnerException">The service returned a non-success response.</exception>
-    System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<WebhookRegistration>> ListAsync(
-        System.Threading.CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<WebhookRegistration>> ListAsync(
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Reads the registration for one event type.
@@ -26,9 +26,9 @@ public interface IMailgunWebhooks
     /// <param name="cancellationToken">A token that cancels the request.</param>
     /// <returns>The registration (its callback URL(s)) for the event type.</returns>
     /// <exception cref="MailgunnerException">The event type has no registration (not-found) or any other non-success response.</exception>
-    System.Threading.Tasks.Task<WebhookRegistration> GetAsync(
+    Task<WebhookRegistration> GetAsync(
         WebhookEventType eventType,
-        System.Threading.CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Creates a registration for one event type with one or more callback URLs (Mailgun allows up to
@@ -38,12 +38,12 @@ public interface IMailgunWebhooks
     /// <param name="urls">The callback URL(s); at least one non-blank URL is required.</param>
     /// <param name="cancellationToken">A token that cancels the request.</param>
     /// <returns>The created registration.</returns>
-    /// <exception cref="System.ArgumentException"><paramref name="urls"/> is null/empty or every entry is blank.</exception>
+    /// <exception cref="ArgumentException"><paramref name="urls"/> is null/empty or every entry is blank.</exception>
     /// <exception cref="MailgunnerException">The service returned a non-success response.</exception>
-    System.Threading.Tasks.Task<WebhookRegistration> CreateAsync(
+    Task<WebhookRegistration> CreateAsync(
         WebhookEventType eventType,
-        System.Collections.Generic.IEnumerable<string> urls,
-        System.Threading.CancellationToken cancellationToken = default);
+        IEnumerable<string> urls,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Registers a single callback URL across several event types in one call. Because each create targets
@@ -55,12 +55,12 @@ public interface IMailgunWebhooks
     /// <param name="url">The single callback URL to register for each event type; must be non-blank.</param>
     /// <param name="cancellationToken">A token that cancels the operation; honored between creates.</param>
     /// <returns>One registration per event type, in order, on full success.</returns>
-    /// <exception cref="System.ArgumentException"><paramref name="eventTypes"/> is null/empty or <paramref name="url"/> is blank.</exception>
+    /// <exception cref="ArgumentException"><paramref name="eventTypes"/> is null/empty or <paramref name="url"/> is blank.</exception>
     /// <exception cref="MailgunnerException">The first non-success response; earlier creates are not rolled back.</exception>
-    System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<WebhookRegistration>> CreateAsync(
-        System.Collections.Generic.IEnumerable<WebhookEventType> eventTypes,
+    Task<IReadOnlyList<WebhookRegistration>> CreateAsync(
+        IEnumerable<WebhookEventType> eventTypes,
         string url,
-        System.Threading.CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Replaces the callback URL(s) for an event type's registration with the supplied URL(s).
@@ -69,12 +69,12 @@ public interface IMailgunWebhooks
     /// <param name="urls">The new callback URL(s); at least one non-blank URL is required.</param>
     /// <param name="cancellationToken">A token that cancels the request.</param>
     /// <returns>The updated registration.</returns>
-    /// <exception cref="System.ArgumentException"><paramref name="urls"/> is null/empty or every entry is blank.</exception>
+    /// <exception cref="ArgumentException"><paramref name="urls"/> is null/empty or every entry is blank.</exception>
     /// <exception cref="MailgunnerException">The event type has no registration (not-found) or any other non-success response.</exception>
-    System.Threading.Tasks.Task<WebhookRegistration> UpdateAsync(
+    Task<WebhookRegistration> UpdateAsync(
         WebhookEventType eventType,
-        System.Collections.Generic.IEnumerable<string> urls,
-        System.Threading.CancellationToken cancellationToken = default);
+        IEnumerable<string> urls,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Deletes an event type's registration.
@@ -83,7 +83,7 @@ public interface IMailgunWebhooks
     /// <param name="cancellationToken">A token that cancels the request.</param>
     /// <returns>A task that completes when the service accepts the deletion.</returns>
     /// <exception cref="MailgunnerException">The event type has no registration (not-found) or any other non-success response.</exception>
-    System.Threading.Tasks.Task DeleteAsync(
+    Task DeleteAsync(
         WebhookEventType eventType,
-        System.Threading.CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default);
 }

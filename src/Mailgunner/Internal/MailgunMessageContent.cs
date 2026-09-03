@@ -3,7 +3,9 @@ namespace Mailgunner.Internal;
 /// <summary>
 /// Validates a <see cref="MailgunMessage"/> and builds the <c>multipart/form-data</c> request body
 /// Mailgun expects: one <c>from</c> part, one repeated recipient part per recipient (never
-/// comma-joined), and <c>subject</c>/<c>text</c>/<c>html</c> parts only when present.
+/// comma-joined), and <c>subject</c>/<c>text</c>/<c>html</c> parts only when present. Also owns the
+/// body-or-template rules and wire fields shared with the batch builder (<see cref="MailgunBatchContent"/>),
+/// so single and batch sends can never encode the same message differently.
 /// </summary>
 internal static class MailgunMessageContent
 {
@@ -12,17 +14,17 @@ internal static class MailgunMessageContent
     /// </summary>
     /// <param name="message">The message to render.</param>
     /// <returns>The multipart content to POST.</returns>
-    /// <exception cref="System.ArgumentNullException"><paramref name="message"/> is null.</exception>
-    /// <exception cref="System.ArgumentException">
+    /// <exception cref="ArgumentNullException"><paramref name="message"/> is null.</exception>
+    /// <exception cref="ArgumentException">
     /// The message is missing a sender, has no recipient across to/cc/bcc, or has no text or HTML body.
     /// </exception>
-    public static System.Net.Http.MultipartFormDataContent Build(MailgunMessage message)
+    public static MultipartFormDataContent Build(MailgunMessage message)
     {
         Guard.NotNull(message, nameof(message));
         Validate(message);
 
-        var content = new System.Net.Http.MultipartFormDataContent();
-        Add(content, "from", message.From.ToString());
+        var content = new MultipartFormDataContent();
+        MailgunHttp.AddField(content, "from", message.From.ToString());
 
         foreach (var recipient in message.To)
         {
@@ -41,83 +43,140 @@ internal static class MailgunMessageContent
 
         if (message.Subject is not null)
         {
-            Add(content, "subject", message.Subject);
+            MailgunHttp.AddField(content, "subject", message.Subject);
         }
 
-        if (!string.IsNullOrEmpty(message.Text))
+        AppendBody(
+            content, message.Text, message.Html, message.Template, message.TemplateVersion,
+            message.GenerateTextFromTemplate, message.TemplateVariables);
+
+        if (!string.IsNullOrEmpty(message.AmpHtml))
         {
-            Add(content, "text", message.Text!);
+            MailgunHttp.AddField(content, "amp-html", message.AmpHtml!);
         }
 
-        if (!string.IsNullOrEmpty(message.Html))
-        {
-            Add(content, "html", message.Html!);
-        }
-
-        if (!string.IsNullOrWhiteSpace(message.Template))
-        {
-            Add(content, "template", message.Template!);
-
-            if (!string.IsNullOrWhiteSpace(message.TemplateVersion))
-            {
-                Add(content, "t:version", message.TemplateVersion!);
-            }
-
-            if (message.GenerateTextFromTemplate)
-            {
-                Add(content, "t:text", "yes");
-            }
-
-            if (message.TemplateVariables.Count > 0)
-            {
-                Add(content, "t:variables", System.Text.Json.JsonSerializer.Serialize(message.TemplateVariables));
-            }
-        }
-
-        MailgunOptionsContent.Append(content, message.Options, message.Attachments, message.InlineFiles);
+        MailgunOptionsContent.Append(content, message.Options, message.Attachments, message.InlineFiles, message.ReplyTo);
 
         return content;
+    }
+
+    /// <summary>
+    /// Enforces the shared body rules: exactly one of an inline body (<paramref name="text"/> /
+    /// <paramref name="html"/>) or a stored <paramref name="template"/>, and template data (variables, a
+    /// version, or a generated-text request) only alongside a template name.
+    /// </summary>
+    /// <param name="text">The plain-text body, if any.</param>
+    /// <param name="html">The HTML body, if any.</param>
+    /// <param name="template">The stored-template name, if any.</param>
+    /// <param name="templateVersion">The pinned template version, if any.</param>
+    /// <param name="generateText">Whether a generated plain-text part was requested.</param>
+    /// <param name="variableCount">The number of global template variables supplied.</param>
+    /// <param name="paramName">The parameter name reported in the exception.</param>
+    /// <exception cref="ArgumentException">A rule is violated.</exception>
+    public static void ValidateBodyOrTemplate(
+        string? text,
+        string? html,
+        string? template,
+        string? templateVersion,
+        bool generateText,
+        int variableCount,
+        string paramName)
+    {
+        var hasBody = !string.IsNullOrEmpty(text) || !string.IsNullOrEmpty(html);
+        var hasTemplate = !string.IsNullOrWhiteSpace(template);
+
+        if (!hasBody && !hasTemplate)
+        {
+            throw new ArgumentException(
+                "At least one body part (Text or Html) or a Template name is required.", paramName);
+        }
+
+        if (hasBody && hasTemplate)
+        {
+            throw new ArgumentException(
+                "A message cannot have both a Template and an inline body (Text or Html); supply one or the other.",
+                paramName);
+        }
+
+        var hasTemplateData = variableCount > 0 || !string.IsNullOrWhiteSpace(templateVersion) || generateText;
+        if (hasTemplateData && !hasTemplate)
+        {
+            throw new ArgumentException(
+                "Template variables, a template version, or a generated-text request require a Template name.",
+                paramName);
+        }
+    }
+
+    /// <summary>
+    /// Appends the shared body fields: <c>text</c>/<c>html</c> when set, or <c>template</c> with its
+    /// optional <c>t:version</c>, <c>t:text=yes</c>, and <c>t:variables</c> (a single JSON object, omitted
+    /// when empty).
+    /// </summary>
+    /// <param name="content">The multipart body being built.</param>
+    /// <param name="text">The plain-text body, if any.</param>
+    /// <param name="html">The HTML body, if any.</param>
+    /// <param name="template">The stored-template name, if any.</param>
+    /// <param name="templateVersion">The pinned template version, if any.</param>
+    /// <param name="generateText">Whether to request a generated plain-text part.</param>
+    /// <param name="variables">The global template variables.</param>
+    public static void AppendBody(
+        MultipartFormDataContent content,
+        string? text,
+        string? html,
+        string? template,
+        string? templateVersion,
+        bool generateText,
+        IDictionary<string, object?> variables)
+    {
+        if (!string.IsNullOrEmpty(text))
+        {
+            MailgunHttp.AddField(content, "text", text!);
+        }
+
+        if (!string.IsNullOrEmpty(html))
+        {
+            MailgunHttp.AddField(content, "html", html!);
+        }
+
+        if (string.IsNullOrWhiteSpace(template))
+        {
+            return;
+        }
+
+        MailgunHttp.AddField(content, "template", template!);
+
+        if (!string.IsNullOrWhiteSpace(templateVersion))
+        {
+            MailgunHttp.AddField(content, "t:version", templateVersion!);
+        }
+
+        if (generateText)
+        {
+            MailgunHttp.AddField(content, "t:text", "yes");
+        }
+
+        if (variables.Count > 0)
+        {
+            MailgunHttp.AddField(content, "t:variables", System.Text.Json.JsonSerializer.Serialize(variables));
+        }
     }
 
     private static void Validate(MailgunMessage message)
     {
         if (string.IsNullOrWhiteSpace(message.From.Address))
         {
-            throw new System.ArgumentException("A sender (From) is required.", nameof(message));
+            throw new ArgumentException("A sender (From) is required.", nameof(message));
         }
 
         if (!HasAnyRecipient(message))
         {
-            throw new System.ArgumentException(
+            throw new ArgumentException(
                 "At least one recipient across To, Cc, or Bcc is required.", nameof(message));
         }
 
-        var hasBody = !string.IsNullOrEmpty(message.Text) || !string.IsNullOrEmpty(message.Html);
-        var hasTemplate = !string.IsNullOrWhiteSpace(message.Template);
-
-        if (!hasBody && !hasTemplate)
-        {
-            throw new System.ArgumentException(
-                "At least one body part (Text or Html) or a Template name is required.", nameof(message));
-        }
-
-        if (hasBody && hasTemplate)
-        {
-            throw new System.ArgumentException(
-                "A message cannot have both a Template and an inline body (Text or Html); supply one or the other.",
-                nameof(message));
-        }
-
-        var hasTemplateData = message.TemplateVariables.Count > 0
-            || !string.IsNullOrWhiteSpace(message.TemplateVersion)
-            || message.GenerateTextFromTemplate;
-
-        if (hasTemplateData && !hasTemplate)
-        {
-            throw new System.ArgumentException(
-                "Template variables, a template version, or a generated-text request require a Template name.",
-                nameof(message));
-        }
+        ValidateBodyOrTemplate(
+            message.Text, message.Html, message.Template, message.TemplateVersion,
+            message.GenerateTextFromTemplate, message.TemplateVariables.Count, nameof(message));
     }
 
     private static bool HasAnyRecipient(MailgunMessage message)
@@ -133,7 +192,7 @@ internal static class MailgunMessageContent
         return false;
     }
 
-    private static System.Collections.Generic.IEnumerable<EmailAddress> EnumerateAll(MailgunMessage message)
+    private static IEnumerable<EmailAddress> EnumerateAll(MailgunMessage message)
     {
         foreach (var recipient in message.To)
         {
@@ -152,16 +211,13 @@ internal static class MailgunMessageContent
     }
 
     private static void AddRecipient(
-        System.Net.Http.MultipartFormDataContent content, string field, EmailAddress recipient)
+        MultipartFormDataContent content, string field, EmailAddress recipient)
     {
         if (string.IsNullOrWhiteSpace(recipient.Address))
         {
             return;
         }
 
-        Add(content, field, recipient.ToString());
+        MailgunHttp.AddField(content, field, recipient.ToString());
     }
-
-    private static void Add(System.Net.Http.MultipartFormDataContent content, string name, string value) =>
-        content.Add(new System.Net.Http.StringContent(value), name);
 }

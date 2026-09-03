@@ -25,6 +25,8 @@ internal sealed class DefaultRetryRandom : IRetryRandom
     private static Random? _random;
 
     /// <inheritdoc />
-    public double NextDouble() => (_random ??= new Random()).NextDouble();
+    // .NET Framework seeds a parameterless Random from Environment.TickCount, so per-thread instances
+    // created within the same millisecond would draw identical jitter; seed each explicitly instead.
+    public double NextDouble() => (_random ??= new Random(Guid.NewGuid().GetHashCode())).NextDouble();
 #endif
 }

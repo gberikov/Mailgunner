@@ -93,4 +93,32 @@ public class EmailAddressTests
         // Wrapped in quotes; the embedded " and \ are backslash-escaped.
         Assert.Equal("\"A\\\"B\\\\C\" <a@b.com>", address.ToString());
     }
+
+    [Theory]
+    [InlineData("victim@x.com, attacker@y.com")]
+    [InlineData("victim@x.com; attacker@y.com")]
+    [InlineData("victim@x.com <attacker@y.com>")]
+    [InlineData("\"attacker\" victim@x.com")]
+    [InlineData("victim@x.com (note)")]
+    [InlineData("victim@[x.com]")]
+    [InlineData("victim@x.com\\attacker")]
+    [InlineData("victim @x.com")]
+    [InlineData("victim")]
+    [InlineData("@x.com")]
+    [InlineData("victim@")]
+    [InlineData("a@b@c.com")]
+    public void Address_with_list_or_delimiter_characters_or_malformed_at_throws_ArgumentException(string address)
+    {
+        Assert.Throws<ArgumentException>(() => new EmailAddress(address));
+    }
+
+    [Theory]
+    [InlineData("user+tag@example.com")]
+    [InlineData("first.last@sub.example.co.uk")]
+    [InlineData("o'brien@example.com")]
+    [InlineData("юзер@пример.рф")]
+    public void Ordinary_addresses_are_accepted(string address)
+    {
+        Assert.Equal(address, new EmailAddress(address).Address);
+    }
 }

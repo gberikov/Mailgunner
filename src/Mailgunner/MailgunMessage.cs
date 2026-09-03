@@ -17,17 +17,17 @@ public sealed class MailgunMessage
     /// Gets the primary recipients. At least one recipient across <see cref="To"/>,
     /// <see cref="Cc"/>, and <see cref="Bcc"/> is required.
     /// </summary>
-    public System.Collections.Generic.IList<EmailAddress> To { get; } = new System.Collections.Generic.List<EmailAddress>();
+    public IList<EmailAddress> To { get; } = new List<EmailAddress>();
 
     /// <summary>
     /// Gets the carbon-copy recipients.
     /// </summary>
-    public System.Collections.Generic.IList<EmailAddress> Cc { get; } = new System.Collections.Generic.List<EmailAddress>();
+    public IList<EmailAddress> Cc { get; } = new List<EmailAddress>();
 
     /// <summary>
     /// Gets the blind-carbon-copy recipients.
     /// </summary>
-    public System.Collections.Generic.IList<EmailAddress> Bcc { get; } = new System.Collections.Generic.List<EmailAddress>();
+    public IList<EmailAddress> Bcc { get; } = new List<EmailAddress>();
 
     /// <summary>
     /// Gets or sets the optional subject.
@@ -69,27 +69,38 @@ public sealed class MailgunMessage
     /// serialized once into a single JSON object sent in the <c>t:variables</c> field; values may be
     /// any JSON-representable type. The field is omitted when the map is empty.
     /// </summary>
-    public System.Collections.Generic.IDictionary<string, object?> TemplateVariables { get; }
-        = new System.Collections.Generic.Dictionary<string, object?>();
+    public IDictionary<string, object?> TemplateVariables { get; }
+        = new Dictionary<string, object?>();
 
     /// <summary>
-    /// Gets the optional send enrichments (tags, test mode, tracking toggles, scheduled delivery time,
-    /// custom headers, and custom variables) applied to this send. Empty by default; every member is
-    /// optional.
+    /// Gets or sets the optional send enrichments (tags, test mode, tracking toggles, scheduled delivery
+    /// time, custom headers, and custom variables) applied to this send. Empty by default; every member
+    /// is optional. Never set to null; a null value is rejected when the request is built.
     /// </summary>
-    public MailgunSendOptions Options { get; } = new MailgunSendOptions();
+    public MailgunSendOptions Options { get; set; } = new MailgunSendOptions();
+
+    /// <summary>
+    /// Gets or sets the optional reply-to address, emitted as the <c>Reply-To</c> header
+    /// (<c>h:Reply-To</c>). Setting it and also supplying a <c>Reply-To</c> entry in
+    /// <see cref="MailgunSendOptions.CustomHeaders"/> (matched case-insensitively) throws
+    /// <see cref="ArgumentException"/> when the request is built.
+    /// </summary>
+    public EmailAddress? ReplyTo { get; set; }
 
     /// <summary>
     /// Gets the file attachments delivered alongside the message. Each is emitted as a downloadable
     /// <c>attachment</c> file part carrying its file name and content type.
     /// </summary>
-    public System.Collections.Generic.IList<MailgunFile> Attachments { get; }
-        = new System.Collections.Generic.List<MailgunFile>();
+    public IList<MailgunFile> Attachments { get; }
+        = new List<MailgunFile>();
 
     /// <summary>
     /// Gets the inline (embedded) files. Each is emitted as an <c>inline</c> file part — distinct from
     /// <see cref="Attachments"/> — so it can be referenced from the HTML body by its content id.
     /// </summary>
-    public System.Collections.Generic.IList<MailgunFile> InlineFiles { get; }
-        = new System.Collections.Generic.List<MailgunFile>();
+    public IList<MailgunFile> InlineFiles { get; }
+        = new List<MailgunFile>();
+
+    /// <summary>Gets or sets the optional AMP-HTML body part, emitted as <c>amp-html</c>. Requires <see cref="Html"/> or <see cref="Text"/> as well.</summary>
+    public string? AmpHtml { get; set; }
 }

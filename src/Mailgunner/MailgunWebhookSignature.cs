@@ -8,8 +8,11 @@ namespace Mailgunner;
 /// configuration — use the Mailgun HTTP webhook signing key, not the sending key).
 /// </summary>
 /// <remarks>
-/// Verification answers only "was this signed by the holder of the signing key?". It performs no
-/// timestamp-freshness or token-reuse (replay) checks; those remain the consumer's responsibility.
+/// Verification answers only "was this signed by the holder of the signing key?". The 4-argument
+/// <see cref="Verify(string, string, string, string)"/> overload performs no timestamp-freshness
+/// check; use the <see cref="Verify(string, string, string, string, TimeSpan, TimeProvider)"/>
+/// overload to also reject a stale or future timestamp. Token-reuse (replay) checks remain the
+/// consumer's responsibility either way.
 /// </remarks>
 public static class MailgunWebhookSignature
 {
@@ -35,7 +38,7 @@ public static class MailgunWebhookSignature
     /// <see langword="null"/>, empty, wrong-length, or non-hexadecimal signature) yields
     /// <see langword="false"/> rather than throwing.
     /// </returns>
-    /// <exception cref="System.ArgumentException">
+    /// <exception cref="ArgumentException">
     /// <paramref name="signingKey"/> is <see langword="null"/>, empty, or whitespace. This is a
     /// configuration error surfaced to the caller, distinct from a forged webhook.
     /// </exception>
@@ -43,7 +46,7 @@ public static class MailgunWebhookSignature
     {
         if (string.IsNullOrWhiteSpace(signingKey))
         {
-            throw new System.ArgumentException("A webhook signing key is required.", nameof(signingKey));
+            throw new ArgumentException("A webhook signing key is required.", nameof(signingKey));
         }
 
         // The three webhook-supplied values are untrusted: any missing field fails closed to
@@ -67,6 +70,72 @@ public static class MailgunWebhookSignature
         byte[] provided = System.Text.Encoding.ASCII.GetBytes(signature);
 
         return FixedTimeEquals(expected, provided);
+    }
+
+    /// <summary>
+    /// Verifies the signature exactly as <see cref="Verify(string, string, string, string)"/> and additionally
+    /// requires the webhook's <paramref name="timestamp"/> (Unix seconds) to be within
+    /// <paramref name="maxAge"/> of the current time in either direction, which defeats replay of an old
+    /// capture. Both checks always run; the result is authentic only when both pass.
+    /// </summary>
+    /// <param name="signingKey">The Mailgun HTTP webhook signing key. Required.</param>
+    /// <param name="timestamp">The webhook's timestamp field, Unix seconds (untrusted input).</param>
+    /// <param name="token">The webhook's token field (untrusted input).</param>
+    /// <param name="signature">The webhook's hex signature field (untrusted input).</param>
+    /// <param name="maxAge">The largest accepted distance between <paramref name="timestamp"/> and now. Must be positive.</param>
+    /// <param name="timeProvider">The clock to use; <see cref="TimeProvider.System"/> when null.</param>
+    /// <returns><see langword="true"/> when the signature is valid and the timestamp is fresh; otherwise <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentException"><paramref name="signingKey"/> is null, empty, or whitespace.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxAge"/> is not positive.</exception>
+    public static bool Verify(
+        string signingKey,
+        string timestamp,
+        string token,
+        string signature,
+        TimeSpan maxAge,
+        TimeProvider? timeProvider = null)
+    {
+        if (maxAge <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxAge), maxAge, "The maximum age must be positive.");
+        }
+
+        // Evaluate the signature first so the key precondition (signingKey required) is enforced
+        // identically to the base overload, regardless of whether the timestamp also turns out to be
+        // fresh. Both the authenticity and freshness checks always run — neither short-circuits the
+        // other — so timing cannot reveal which one failed.
+        var authentic = Verify(signingKey, timestamp, token, signature);
+        var fresh = IsFresh(timestamp, maxAge, timeProvider);
+
+        return authentic && fresh;
+    }
+
+    private static bool IsFresh(string timestamp, TimeSpan maxAge, TimeProvider? timeProvider)
+    {
+        // The timestamp is attacker-controlled, so the parse is strict: NumberStyles.None rejects a
+        // leading sign, whitespace, a decimal point, thousands separators, and hex — only plain ASCII
+        // digits pass.
+        if (timestamp is null
+            || !long.TryParse(timestamp, System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out var unixSeconds))
+        {
+            return false;
+        }
+
+        DateTimeOffset issued;
+        try
+        {
+            issued = DateTimeOffset.FromUnixTimeSeconds(unixSeconds);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return false;
+        }
+
+        var now = (timeProvider ?? System.TimeProvider.System).GetUtcNow();
+        var distance = now > issued ? now - issued : issued - now;
+
+        return distance <= maxAge;
     }
 
     private static string ToLowerHex(byte[] bytes)

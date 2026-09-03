@@ -155,6 +155,31 @@ public sealed class SampleConfigurationTests
     }
 
     [Fact]
+    public void Resolve_FromInDisplayNameForm_ReportedAsMissingNotThrown()
+    {
+        var values = CompleteValues();
+        values["Mailgun:From"] = "Events <events@sandbox123.mailgun.org>";
+
+        var result = SampleConfiguration.Resolve(Build(values));
+
+        Assert.False(result.IsResolved);
+        var entry = Assert.Single(result.Missing, m => m.Key == "Mailgun:From");
+        Assert.False(string.IsNullOrWhiteSpace(entry.Guidance));
+    }
+
+    [Fact]
+    public void Resolve_RecipientInDisplayNameForm_ReportedAsMissingNotThrown()
+    {
+        var values = CompleteValues();
+        values["Mailgun:Recipients:1:Address"] = "Dev Two <dev2@example.com>";
+
+        var result = SampleConfiguration.Resolve(Build(values));
+
+        Assert.False(result.IsResolved);
+        Assert.Contains(result.Missing, m => m.Key == "Mailgun:Recipients:1:Address");
+    }
+
+    [Fact]
     public void Resolve_NullConfiguration_Throws() =>
         Assert.Throws<ArgumentNullException>(() => SampleConfiguration.Resolve(null!));
 }
