@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-04
+
 ### Added
 
 - `net10.0` target. The package now multi-targets `net10.0`, `net8.0` and `netstandard2.0`;
@@ -309,5 +311,6 @@ because the 0.1.0 entries above describe their changes relative to it.
   (not failed) when they are absent — and its credential-presence resolver is covered by an offline
   unit test, so the default build/test stay green with no credentials.
 
-[Unreleased]: https://github.com/gberikov/Mailgunner/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/gberikov/Mailgunner/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/gberikov/Mailgunner/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/gberikov/Mailgunner/releases/tag/v0.1.0
