@@ -43,7 +43,7 @@
     <!-- Required by the public API surface on netstandard2.0, not merely chosen: TimeProvider is
          in-box on net8.0 but on netstandard2.0 it is defined by this package, which otherwise only
          arrives transitively (and unpinned) through Polly.Core. See Mailgunner.csproj. -->
-    <PackageVersion Include="Microsoft.Bcl.TimeProvider" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Bcl.TimeProvider" Version="10.0.11" />
   </ItemGroup>
 
   <!--
