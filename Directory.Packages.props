@@ -36,7 +36,7 @@
     Library floors stay on the 8.0.x train so net8.0 consumers are not forced onto newer Extensions packages.
   -->
   <ItemGroup>
-    <PackageVersion Include="System.Text.Json" Version="8.0.5" />
+    <PackageVersion Include="System.Text.Json" Version="8.0.6" />
     <PackageVersion Include="Polly.Core" Version="8.7.0" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="8.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />

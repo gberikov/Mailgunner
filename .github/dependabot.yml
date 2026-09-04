@@ -25,3 +25,7 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "Microsoft.Extensions.Http"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.Extensions.Options.ConfigurationExtensions"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.Bcl.TimeProvider"
+        update-types: ["version-update:semver-major"]
