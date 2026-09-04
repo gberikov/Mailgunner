@@ -16,15 +16,15 @@
 
   <!-- Test stack -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
     <!-- Test-only: tests/Mailgunner.IntegrationTests uses [SkippableFact]/Skip.If so an unconfigured
          run reports Skipped rather than a vacuously "passed" test with no assertions. -->
     <PackageVersion Include="Xunit.SkippableFact" Version="1.5.85" />
     <PackageVersion Include="coverlet.collector" Version="10.0.1" />
     <!-- Test-only: builds an in-memory IConfiguration to exercise the named config-section overload. -->
-    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.11" />
     <!-- Test-only: net48 reference assemblies, so tests/Mailgunner.NetFxTests compiles on a runner
          (e.g. Linux) that has no .NET Framework 4.8 targeting pack installed. -->
     <PackageVersion Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" />

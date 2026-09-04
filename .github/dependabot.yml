@@ -3,11 +3,25 @@ updates:
   # Keep the SHA-pinned GitHub Actions current (security patches surface as PRs).
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
 
   # Surface NuGet updates (including security advisories) for the pinned dependency set.
   - package-ecosystem: "nuget"
     directory: "/"
+    # Feature work merges into develop; master only ever takes release/* and hotfix/* (git flow).
+    target-branch: "develop"
     schedule:
       interval: "weekly"
+    ignore:
+      # The library's own runtime dependencies declare the LOWEST version it needs, because a
+      # library's floor is imposed on every consumer: System.Text.Json 8.0.x is in-box on net8.0
+      # (so package pruning drops it from the published dependency group entirely) and raising
+      # Microsoft.Extensions.Http to 10.x would drag the whole Microsoft.Extensions.* 10 stack
+      # into apps running on .NET 8. Patch and minor updates within 8.0.x — including security
+      # advisories — still come through; only the major jump is ignored.
+      - dependency-name: "System.Text.Json"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.Extensions.Http"
+        update-types: ["version-update:semver-major"]
