@@ -206,7 +206,7 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
 
         if (request.Content is not null and not MultipartFormDataContent)
         {
-            requestBody = await request.Content.ReadAsStringAsync(CancellationToken.None).ConfigureAwait(false);
+            requestBody = await request.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             LastBody = requestBody;
         }
 
@@ -223,7 +223,7 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
                 // SerializeToStreamAsync — masking whether a stream-backed attachment's factory is
                 // actually re-opened per attempt, the way the real transport re-serializes it.
                 using var partBuffer = new MemoryStream();
-                await part.CopyToAsync(partBuffer, CancellationToken.None).ConfigureAwait(false);
+                await part.CopyToAsync(partBuffer, cancellationToken).ConfigureAwait(false);
                 var value = Encoding.UTF8.GetString(partBuffer.ToArray());
                 var rawFileName = part.Headers.ContentDisposition?.FileName;
                 var fileName = rawFileName is null ? null : rawFileName.Trim('"');

@@ -81,6 +81,11 @@ internal sealed class MailgunResilienceHandler : DelegatingHandler
         Guard.NotNull(logger, nameof(logger));
         Guard.NotNull(random, nameof(random));
 
+        if (retry.SendRetryMode is not (SendRetryMode.Safe or SendRetryMode.Full))
+        {
+            throw new ArgumentOutOfRangeException(nameof(retry), "The send retry mode must be Safe or Full.");
+        }
+
         _timeProvider = timeProvider;
         _options = retry;
         _logger = logger;
@@ -193,10 +198,18 @@ internal sealed class MailgunResilienceHandler : DelegatingHandler
     private bool ShouldRetry(Outcome<HttpResponseMessage> outcome, ResilienceContext context)
     {
         var isSend = context.Properties.TryGetValue(IsSendKey, out var send) && send;
-        if (isSend && _options.SendRetryMode == SendRetryMode.Safe)
+        if (isSend)
         {
-            // A send is not idempotent: only a rate-limit rejection is provably unaccepted.
-            return outcome.Result is { } rejected && (int)rejected.StatusCode == 429;
+            switch (_options.SendRetryMode)
+            {
+                case SendRetryMode.Safe:
+                    // A send is not idempotent: retry only a rate-limit rejection.
+                    return outcome.Result is { } rejected && (int)rejected.StatusCode == 429;
+                case SendRetryMode.Full:
+                    break;
+                default:
+                    throw new InvalidOperationException("The send retry mode must be Safe or Full.");
+            }
         }
 
         if (outcome.Exception is { } exception)

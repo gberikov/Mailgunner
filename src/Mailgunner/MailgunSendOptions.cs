@@ -63,6 +63,9 @@ public sealed class MailgunSendOptions
     /// value verbatim (the library does not serialize structured objects; pre-encode any structured
     /// data into the string). Names are unique; emission order is immaterial. A blank name is rejected
     /// with an <see cref="ArgumentException"/> when the request is built.
+    /// These values are visible to recipients in the delivered email's <c>X-Mailgun-Variables</c>
+    /// header. Do not put credentials or confidential metadata here. Values over 4KB are truncated
+    /// in events/webhooks.
     /// </summary>
     public IDictionary<string, string> CustomVariables { get; }
         = new Dictionary<string, string>(StringComparer.Ordinal);

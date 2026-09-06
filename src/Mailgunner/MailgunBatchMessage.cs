@@ -11,7 +11,8 @@ namespace Mailgunner;
 public sealed class MailgunBatchMessage
 {
     /// <summary>
-    /// Gets or sets the sender. Required.
+    /// Gets or sets the sender. Required for inline messages; omit it to use the stored template's From
+    /// header. Mailgun rejects a templated send if neither the batch nor the template supplies a sender.
     /// </summary>
     public EmailAddress From { get; set; }
 

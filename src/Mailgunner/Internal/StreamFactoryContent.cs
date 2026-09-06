@@ -19,12 +19,22 @@ internal sealed class StreamFactoryContent : HttpContent
     }
 
     /// <inheritdoc/>
-    protected override async Task SerializeToStreamAsync(
-        Stream stream, System.Net.TransportContext? context)
+    protected override Task SerializeToStreamAsync(
+        Stream stream, System.Net.TransportContext? context) => CopyContentAsync(stream, CancellationToken.None);
+
+#if NET8_0_OR_GREATER
+    /// <inheritdoc/>
+    protected override Task SerializeToStreamAsync(
+        Stream stream, System.Net.TransportContext? context, CancellationToken cancellationToken) =>
+        CopyContentAsync(stream, cancellationToken);
+#endif
+
+    private async Task CopyContentAsync(Stream stream, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         using var source = _open() ?? throw new InvalidOperationException(
             "The MailgunFile stream factory (OpenContent) returned null; it must return a fresh readable stream.");
-        await source.CopyToAsync(stream).ConfigureAwait(false);
+        await source.CopyToAsync(stream, 81920, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>

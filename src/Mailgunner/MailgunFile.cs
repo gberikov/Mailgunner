@@ -32,7 +32,11 @@ public sealed class MailgunFile
     /// <summary>
     /// Initializes a stream-backed file. <paramref name="openContent"/> is invoked once per request that
     /// carries the file (each batch chunk and each retry), so it must return a fresh readable stream every
-    /// time; the library disposes each stream after copying it.
+    /// time; the library disposes each stream after copying it, including on cancellation or failure.
+    /// On .NET 8 and later the source copy receives the request/attempt cancellation token. The
+    /// netstandard2.0 HttpContent API has no cancellation-aware serialization overload, so a stalled
+    /// source read on that target must enforce its own timeout. The synchronous factory itself must
+    /// return promptly on every target.
     /// </summary>
     /// <param name="fileName">The file name carried on the file part. Required, non-blank.</param>
     /// <param name="openContent">Opens a fresh stream over the content. Required.</param>

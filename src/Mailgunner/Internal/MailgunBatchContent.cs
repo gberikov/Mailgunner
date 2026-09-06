@@ -30,7 +30,7 @@ internal static class MailgunBatchContent
     {
         Guard.NotNull(message, nameof(message));
 
-        if (string.IsNullOrWhiteSpace(message.From.Address))
+        if (string.IsNullOrWhiteSpace(message.From.Address) && string.IsNullOrWhiteSpace(message.Template))
         {
             throw new ArgumentException("A sender (From) is required.", nameof(message));
         }
@@ -99,7 +99,10 @@ internal static class MailgunBatchContent
     {
         var content = new MultipartFormDataContent();
 
-        MailgunHttp.AddField(content, "from", message.From.ToString());
+        if (!string.IsNullOrWhiteSpace(message.From.Address))
+        {
+            MailgunHttp.AddField(content, "from", message.From.ToString());
+        }
 
         foreach (var recipient in chunk)
         {

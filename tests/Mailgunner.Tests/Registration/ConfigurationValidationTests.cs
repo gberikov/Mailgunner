@@ -135,6 +135,22 @@ public class ConfigurationValidationTests
         Assert.Contains(ex.Failures, f => f.Contains("AttemptTimeout", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(99)]
+    public void Undefined_send_retry_mode_is_rejected_at_startup(int mode)
+    {
+        var ex = ValidateThrows(o =>
+        {
+            o.Domain = "mg.example.com";
+            o.SendingKey = "key-123";
+            o.Region = MailgunRegion.Us;
+            o.Retry.SendRetryMode = (SendRetryMode)mode;
+        });
+
+        Assert.Contains(ex.Failures, f => f.Contains("SendRetryMode", StringComparison.Ordinal));
+    }
+
     private static OptionsValidationException ValidateThrows(Action<MailgunnerOptions> configure)
     {
         var services = new ServiceCollection();

@@ -43,7 +43,9 @@ public sealed class MailgunnerException : Exception
         StatusCode = statusCode;
         ResponseBody = responseBody;
         FailedChunkIndex = failedChunkIndex;
-        AcceptedResults = acceptedResults ?? Array.Empty<SendResult>();
+        AcceptedResults = acceptedResults is null
+            ? Array.Empty<SendResult>()
+            : new List<SendResult>(acceptedResults).AsReadOnly();
     }
 
     /// <summary>
@@ -60,14 +62,20 @@ public sealed class MailgunnerException : Exception
     /// Gets the zero-based index of the batch chunk that failed, or <see langword="null"/> when the error
     /// did not occur inside <see cref="IMailgunnerClient.SendBatchAsync"/>.
     /// </summary>
-    public int? FailedChunkIndex { get; }
+    public int? FailedChunkIndex { get; private set; }
 
     /// <summary>
     /// Gets the results of the batch chunks Mailgun accepted before the failure (chunks
-    /// <c>0..FailedChunkIndex-1</c>), so a caller can resume from the failed chunk. Empty outside a batch.
-    /// Those messages have been sent and are not rolled back.
+    /// <c>0..FailedChunkIndex-1</c>). Empty outside a batch. Those messages have been accepted and are
+    /// not rolled back. The failing chunk may also have been accepted; inspect the failure before retrying.
     /// </summary>
-    public IReadOnlyList<SendResult> AcceptedResults { get; }
+    public IReadOnlyList<SendResult> AcceptedResults { get; private set; }
+
+    internal void SetBatchProgress(int chunkIndex, IReadOnlyList<SendResult> results)
+    {
+        FailedChunkIndex = chunkIndex;
+        AcceptedResults = new List<SendResult>(results).AsReadOnly();
+    }
 
     private static string BuildMessage(int statusCode, string responseBody)
     {
