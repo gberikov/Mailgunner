@@ -4,10 +4,14 @@ namespace Mailgunner.IntegrationTests;
 
 public class WebhooksLiveTests
 {
-    [SkippableFact]
+    [Fact]
     public async Task Create_get_update_list_delete_round_trip()
     {
-        Skip.If(Live.Client is null, Live.NotConfigured);
+        if (Live.Client is null)
+        {
+            Assert.Skip(Live.NotConfigured);
+        }
+        var ct = TestContext.Current.CancellationToken;
         var client = Live.Client!;
         const WebhookEventType type = WebhookEventType.TemporaryFail;
         var url = $"https://example.com/hooks/{Guid.NewGuid():N}";
@@ -18,8 +22,8 @@ public class WebhooksLiveTests
         WebhookRegistration? previous = null;
         try
         {
-            previous = await client.Webhooks.GetAsync(type);
-            await client.Webhooks.DeleteAsync(type);
+            previous = await client.Webhooks.GetAsync(type, ct);
+            await client.Webhooks.DeleteAsync(type, ct);
         }
         catch (MailgunnerException getEx) when (getEx.StatusCode == 404)
         {
@@ -27,17 +31,17 @@ public class WebhooksLiveTests
 
         try
         {
-            var created = await client.Webhooks.CreateAsync(type, new[] { url });
+            var created = await client.Webhooks.CreateAsync(type, new[] { url }, ct);
             Assert.Contains(url, created.Urls);
 
-            var updated = await client.Webhooks.UpdateAsync(type, new[] { url + "/v2" });
+            var updated = await client.Webhooks.UpdateAsync(type, new[] { url + "/v2" }, ct);
             Assert.Contains(url + "/v2", updated.Urls);
 
-            var listed = await client.Webhooks.ListAsync();
+            var listed = await client.Webhooks.ListAsync(ct);
             Assert.Contains(listed, r => r.EventType == type);
 
-            await client.Webhooks.DeleteAsync(type);
-            var ex = await Assert.ThrowsAsync<MailgunnerException>(() => client.Webhooks.GetAsync(type));
+            await client.Webhooks.DeleteAsync(type, ct);
+            var ex = await Assert.ThrowsAsync<MailgunnerException>(() => client.Webhooks.GetAsync(type, ct));
             Assert.Equal(404, ex.StatusCode);
         }
         finally
@@ -47,7 +51,7 @@ public class WebhooksLiveTests
             // assertions above.
             if (previous is { } original)
             {
-                await Live.CleanupAsync(() => client.Webhooks.CreateAsync(type, original.Urls));
+                await Live.CleanupAsync(() => client.Webhooks.CreateAsync(type, original.Urls, ct));
             }
         }
     }

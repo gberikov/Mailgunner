@@ -5,13 +5,16 @@
     <IsPackable>false</IsPackable>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <IsTestProject>true</IsTestProject>
+    <!-- xunit v3 test projects are self-executing console apps. -->
+    <OutputType>Exe</OutputType>
+    <!-- Build the Microsoft.Testing.Platform entry point instead of xunit's own console runner,
+         so `dotnet test` can drive this project (see the "test" runner opt-in in global.json). -->
+    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio" />
-    <PackageReference Include="Xunit.SkippableFact" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
   </ItemGroup>
 
   <ItemGroup>

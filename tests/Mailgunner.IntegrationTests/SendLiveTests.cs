@@ -4,11 +4,18 @@ namespace Mailgunner.IntegrationTests;
 
 public class SendLiveTests
 {
-    [SkippableFact]
+    [Fact]
     public async Task Test_mode_send_is_accepted()
     {
-        Skip.If(Live.Client is null, Live.NotConfigured);
-        Skip.If(Live.Recipient is null, "Mailgun__Recipients__0__Address not set");
+        if (Live.Client is null)
+        {
+            Assert.Skip(Live.NotConfigured);
+        }
+        if (Live.Recipient is null)
+        {
+            Assert.Skip("Mailgun__Recipients__0__Address not set");
+        }
+        var ct = TestContext.Current.CancellationToken;
         var client = Live.Client!;
         var message = new MailgunMessage
         {
@@ -19,7 +26,7 @@ public class SendLiveTests
         message.To.Add(Live.Recipient);
         message.Options.TestMode = true;
 
-        var result = await client.SendAsync(message);
+        var result = await client.SendAsync(message, ct);
 
         Assert.False(string.IsNullOrEmpty(result.Id));
     }
