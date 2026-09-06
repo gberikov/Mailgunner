@@ -13,6 +13,9 @@
 *.yml       text eol=lf
 *.yaml      text eol=lf
 
+# Shell hooks must keep LF even in a Windows checkout — sh fails on the trailing CR.
+/.githooks/** text eol=lf
+
 # Treat known binary types as binary (no EOL conversion)
 *.png       binary
 *.jpg       binary

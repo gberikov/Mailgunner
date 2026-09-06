@@ -59,11 +59,11 @@ jobs:
         run: dotnet build --configuration Release --no-restore
 
       - name: Test (net10.0, net8.0)
-        run: dotnet test tests/Mailgunner.Tests --configuration Release --no-build
+        run: dotnet test --project tests/Mailgunner.Tests --configuration Release --no-build
 
       - name: Test (net48, netstandard2.0 asset)
         if: runner.os == 'Windows'
-        run: dotnet test tests/Mailgunner.NetFxTests --configuration Release --no-build
+        run: dotnet test --project tests/Mailgunner.NetFxTests --configuration Release --no-build
 
   release:
     # Only a `v*` tag, and only after the whole test matrix is green. MinVer derives the package

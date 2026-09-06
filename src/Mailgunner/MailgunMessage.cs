@@ -2,14 +2,15 @@ namespace Mailgunner;
 
 /// <summary>
 /// An email to send: a sender, recipients across to/cc/bcc, an optional subject, and a text
-/// and/or HTML body. At least one recipient (across <see cref="To"/>, <see cref="Cc"/>, and
-/// <see cref="Bcc"/>) and at least one of <see cref="Text"/> or <see cref="Html"/> are required;
+/// and/or HTML body, AMP body, or stored template. At least one recipient (across <see cref="To"/>, <see cref="Cc"/>, and
+/// <see cref="Bcc"/>) and at least one of <see cref="Text"/>, <see cref="Html"/>, <see cref="AmpHtml"/>, or <see cref="Template"/> are required;
 /// these are validated when the message is sent.
 /// </summary>
 public sealed class MailgunMessage
 {
     /// <summary>
-    /// Gets or sets the sender. Required.
+    /// Gets or sets the sender. Required for inline messages; omit it to use a stored template's From
+    /// header. Mailgun rejects a templated send if neither the message nor the template supplies a sender.
     /// </summary>
     public EmailAddress From { get; set; }
 
@@ -101,6 +102,6 @@ public sealed class MailgunMessage
     public IList<MailgunFile> InlineFiles { get; }
         = new List<MailgunFile>();
 
-    /// <summary>Gets or sets the optional AMP-HTML body part, emitted as <c>amp-html</c>. Requires <see cref="Html"/> or <see cref="Text"/> as well.</summary>
+    /// <summary>Gets or sets the AMP-HTML body part, emitted as <c>amp-html</c>. It can satisfy the body requirement on its own.</summary>
     public string? AmpHtml { get; set; }
 }

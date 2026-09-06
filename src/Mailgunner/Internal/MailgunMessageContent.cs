@@ -24,7 +24,10 @@ internal static class MailgunMessageContent
         Validate(message);
 
         var content = new MultipartFormDataContent();
-        MailgunHttp.AddField(content, "from", message.From.ToString());
+        if (!string.IsNullOrWhiteSpace(message.From.Address))
+        {
+            MailgunHttp.AddField(content, "from", message.From.ToString());
+        }
 
         foreach (var recipient in message.To)
         {
@@ -72,6 +75,7 @@ internal static class MailgunMessageContent
     /// <param name="generateText">Whether a generated plain-text part was requested.</param>
     /// <param name="variableCount">The number of global template variables supplied.</param>
     /// <param name="paramName">The parameter name reported in the exception.</param>
+    /// <param name="ampHtml">An optional AMP body, which can also be sent alongside a template.</param>
     /// <exception cref="ArgumentException">A rule is violated.</exception>
     public static void ValidateBodyOrTemplate(
         string? text,
@@ -80,15 +84,16 @@ internal static class MailgunMessageContent
         string? templateVersion,
         bool generateText,
         int variableCount,
-        string paramName)
+        string paramName,
+        string? ampHtml = null)
     {
         var hasBody = !string.IsNullOrEmpty(text) || !string.IsNullOrEmpty(html);
         var hasTemplate = !string.IsNullOrWhiteSpace(template);
 
-        if (!hasBody && !hasTemplate)
+        if (!hasBody && !hasTemplate && string.IsNullOrEmpty(ampHtml))
         {
             throw new ArgumentException(
-                "At least one body part (Text or Html) or a Template name is required.", paramName);
+                "At least one body part (Text, Html, or AmpHtml) or a Template name is required.", paramName);
         }
 
         if (hasBody && hasTemplate)
@@ -163,7 +168,7 @@ internal static class MailgunMessageContent
 
     private static void Validate(MailgunMessage message)
     {
-        if (string.IsNullOrWhiteSpace(message.From.Address))
+        if (string.IsNullOrWhiteSpace(message.From.Address) && string.IsNullOrWhiteSpace(message.Template))
         {
             throw new ArgumentException("A sender (From) is required.", nameof(message));
         }
@@ -176,7 +181,7 @@ internal static class MailgunMessageContent
 
         ValidateBodyOrTemplate(
             message.Text, message.Html, message.Template, message.TemplateVersion,
-            message.GenerateTextFromTemplate, message.TemplateVariables.Count, nameof(message));
+            message.GenerateTextFromTemplate, message.TemplateVariables.Count, nameof(message), message.AmpHtml);
     }
 
     private static bool HasAnyRecipient(MailgunMessage message)

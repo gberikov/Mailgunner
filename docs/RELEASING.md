@@ -1,4 +1,5 @@
 # Releasing Mailgunner to NuGet
+[← All Mailgunner docs](https://github.com/gberikov/Mailgunner/blob/master/README.md#documentation)
 
 This is the complete, minimal procedure to publish a release. **Publishing is deliberate and
 credential-free**: nothing is ever published by ordinary development, and no long-lived NuGet API

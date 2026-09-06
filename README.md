@@ -3,7 +3,7 @@
 Lightweight, modern, unofficial .NET client for the [Mailgun](https://www.mailgun.com/)
 (Sinch) REST API, focused on bulk personalized email delivery.
 
-> **Status:** `0.1.0` — first release. Sending (single, templated, personalized batches), suppression
+> **Latest release:** `0.1.1`. Sending (single, templated, personalized batches), suppression
 > lists, domain webhook management, webhook signature verification, named clients, one-click
 > List-Unsubscribe, stream attachments and a safe-by-default send retry mode. See the
 > [changelog](https://github.com/gberikov/Mailgunner/blob/master/CHANGELOG.md).
@@ -23,433 +23,54 @@ Lightweight, modern, unofficial .NET client for the [Mailgun](https://www.mailgu
 dotnet add package Mailgunner
 ```
 
-> Releases are published on `v*` tags; see [docs/RELEASING.md](docs/RELEASING.md).
+> Releases are published on `v*` tags; see [docs/RELEASING.md](https://github.com/gberikov/Mailgunner/blob/master/docs/RELEASING.md).
 
 ## Quickstart
 
-Register the client, then send a **personalized conference-invitation batch** — each recipient
-gets their own name, ticket, and personal link from one stored Handlebars template. Adapt only the
-domain, key, region, and recipients; everything else is the scenario the [sample](#run-the-sample)
-runs verbatim.
+For a single message, register the client with your host and resolve it from DI:
 
 ```csharp
 using Mailgunner;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
-// 1. Register the client (adapt domain / key / region; supply the key from configuration).
-var services = new ServiceCollection();
-services.AddMailgunner(
-    domain: "sandbox123.mailgun.org",
-    sendingKey: configuration["Mailgun:SendingKey"]!,
-    region: MailgunRegion.Us);
-
-IMailgunnerClient client = services.BuildServiceProvider().GetRequiredService<IMailgunnerClient>();
-
-// 2. Build the batch from a stored Handlebars template that references {{name}} / {{ticket}} / {{link}}.
-var batch = new MailgunBatchMessage
+var builder = Host.CreateApplicationBuilder(args);
+builder.Services.AddMailgunner(
+    "mg.example.com", builder.Configuration["Mailgun:SendingKey"]!, MailgunRegion.Us);
+using var host = builder.Build();
+var client = host.Services.GetRequiredService<IMailgunnerClient>();
+var message = new MailgunMessage
 {
-    From = "postmaster@sandbox123.mailgun.org",
-    Subject = "You're invited!",
-    Template = "conference-invitation",
-    GenerateTextFromTemplate = true,
+    From = "hello@mg.example.com",
+    Subject = "Hello",
+    Text = "Your first message from Mailgunner.",
 };
-
-// 3. The bridge: each template variable reads its per-recipient value from recipient-variables.
-batch.TemplateVariables["name"] = "%recipient.name%";
-batch.TemplateVariables["ticket"] = "%recipient.ticket%";
-batch.TemplateVariables["link"] = "%recipient.link%";
-
-// 4. Per-recipient values — each attendee gets their own name / ticket / link.
-var ada = new BatchRecipient("dev1@example.com");
-ada.Variables["name"] = "Ada Lovelace";
-ada.Variables["ticket"] = "A-1024";
-ada.Variables["link"] = "https://conf.example/t/A-1024";
-batch.Recipients.Add(ada);
-
-var alan = new BatchRecipient("dev2@example.com");
-alan.Variables["name"] = "Alan Turing";
-alan.Variables["ticket"] = "A-2048";
-alan.Variables["link"] = "https://conf.example/t/A-2048";
-batch.Recipients.Add(alan);
-
-// 5. Send — automatically chunked; Mailgun delivers one personalized message per recipient.
-IReadOnlyList<SendResult> results = await client.SendBatchAsync(batch);
-foreach (SendResult result in results)
-    Console.WriteLine($"sent: id={result.Id} status={result.Message}");
+message.To.Add("you@example.com");
+SendResult result = await client.SendAsync(message);
+Console.WriteLine(result.Id); // accepted by Mailgun; this is not a delivery confirmation
 ```
 
-Why the bridge (step 3)? A batch can use a stored template (this example) **or** inline `Text`/`Html`
-with `%recipient.var%` placeholders. This example's stored-template path emits the global
-`t:variables` (which a Handlebars template reads as `{{var}}`) and a per-recipient
-`recipient-variables` object (addressed as `%recipient.var%`). Mapping each `{{var}}` to its
-`%recipient.var%` token in `TemplateVariables` is what makes Mailgun render a **distinct** value per
-recipient — no library change required.
-
-## Run the sample
-
-A runnable version of the exact scenario above lives in
-[`samples/Mailgunner.Sample`](https://github.com/gberikov/Mailgunner/tree/master/samples/Mailgunner.Sample). It is also the project's single
-environment-gated **live** check: it sends only when credentials are present and is **skipped — not
-failed — when they are absent**.
-
-**One-time setup** (live run only): in the Mailgun dashboard, add your test addresses as
-**authorized recipients** of your **sandbox** domain, and create a **stored Handlebars template**
-named `conference-invitation` whose body references the per-recipient fields, for example:
-
-```handlebars
-<p>Hi {{name}}, your ticket is <strong>{{ticket}}</strong>.</p>
-<p>Your personal link: <a href="{{link}}">{{link}}</a></p>
-```
-
-**Supply credentials** via environment variables (note the `__` section separator) or user-secrets —
-never edit source or commit a secret:
-
-```bash
-export Mailgun__Domain="sandbox123.mailgun.org"
-export Mailgun__SendingKey="key-…"                 # prefer a Domain Sending Key
-export Mailgun__Region="Us"                          # Us or Eu (must match the domain)
-export Mailgun__Recipients__0__Address="you@example.com"
-export Mailgun__Recipients__1__Address="teammate@example.com"
-```
-
-```bash
-dotnet run --project samples/Mailgunner.Sample
-```
-
-With credentials present, the sample sends one personalized batch and prints a success line (id +
-status) per chunk. **With any required setting absent**, it makes no request, prints exactly which
-settings are missing and where to supply them, and exits `0`.
-
-## Getting started
-
-Register the client into your dependency-injection container with a single call, supplying your
-Mailgun domain, a sending key, and a region. Resolving `IMailgunnerClient` then yields a ready
-instance whose requests target the correct regional host and carry HTTP Basic authentication.
-
-```csharp
-using Microsoft.Extensions.DependencyInjection;
-using Mailgunner;
-
-// Explicit settings:
-services.AddMailgunner(
-    domain: "mg.example.com",
-    sendingKey: configuration["Mailgun:SendingKey"]!,
-    region: MailgunRegion.Eu);
-
-// …or configure via a delegate (e.g. bound from configuration):
-services.AddMailgunner(options =>
-{
-    options.Domain = configuration["Mailgun:Domain"]!;
-    options.SendingKey = configuration["Mailgun:SendingKey"]!;
-    options.Region = MailgunRegion.Us;
-});
-
-// Later, anywhere DI is available:
-var client = serviceProvider.GetRequiredService<IMailgunnerClient>();
-```
-
-Prefer a **Domain Sending Key** over your primary account key, and supply it from configuration
-or environment — never hard-code it.
-
-Invalid configuration (a missing/blank domain or sending key, or an unspecified/unrecognized
-region) is rejected when the host starts, with a clear error that names the offending setting.
-
-### Regions
-
-The region selects the API host: `MailgunRegion.Us` → `https://api.mailgun.net`,
-`MailgunRegion.Eu` → `https://api.eu.mailgun.net`. The region and the sending domain are
-independent: if you configure a region that does **not** match where your domain is hosted, the
-client still builds, but requests go to a host where the domain is not found and Mailgun
-responds with **HTTP 404**. Make sure the region matches your domain's region.
-
-### Multiple named clients
-
-Need to talk to more than one Mailgun identity from one application — several domains, or a
-transactional/marketing split across subdomains? Register each under a distinct **name**. Every
-named client keeps its own domain, sending key, region, and retry settings, fully isolated from the
-others and from the unnamed registration.
-
-```csharp
-// Register as many names as you need (explicit, delegate, or bound from configuration):
-services.AddMailgunner("transactional", "tx.example.com", txKey, MailgunRegion.Us);
-services.AddMailgunner("marketing", options =>
-{
-    options.Domain = "news.example.com";
-    options.SendingKey = mktKey;
-    options.Region = MailgunRegion.Eu;
-    options.Retry.MaxRetryAttempts = 5;
-});
-services.AddMailgunner("audit", configuration.GetSection("Mailgun:Audit")); // IConfiguration binding
-
-// Resolve a specific one at the point of sending:
-var factory = serviceProvider.GetRequiredService<IMailgunnerClientFactory>();
-IMailgunnerClient tx = factory.Get("transactional");
-await tx.SendAsync(message, cancellationToken);
-```
-
-Notes:
-
-- Names are **case-sensitive** (ordinal): `"transactional"` and `"Transactional"` are different names.
-- A **blank** or **duplicate** name is rejected when you register it; resolving an **unknown** name
-  throws a clear `ArgumentException` (it never returns a default client). These are standard .NET
-  errors and never expose a sending key — `MailgunnerException` stays reserved for HTTP responses.
-- The existing **unnamed** `AddMailgunner` keeps working unchanged and can coexist with named clients.
-  If you register **only** named clients, a bare `IMailgunnerClient` is intentionally not resolvable
-  (there is no implicit default) — resolve through `IMailgunnerClientFactory.Get(name)` instead.
-- The per-name region/domain match matters exactly as above: a mismatch yields **HTTP 404**.
-
-## Send options & limits
-
-Any send — single, templated, or a personalized batch — can be enriched with optional production
-"knobs" via `MailgunMessage.Options` / `MailgunBatchMessage.Options` (a `MailgunSendOptions`), plus
-the `Attachments` and `InlineFiles` collections. Every knob is optional; omitting one leaves your
-Mailgun account default in effect.
-
-- **Attachments & inline files** — add `MailgunFile(fileName, content, contentType?)` to `Attachments`
-  (downloadable) or `InlineFiles` (embeddable, referenced from HTML by content id), or
-  `MailgunFile(fileName, () => File.OpenRead(path), contentType)` to stream large files without
-  buffering; the factory is called once per request. When the content type is omitted it defaults to
-  `application/octet-stream`.
-- **Tags** — `Options.Tags` may carry several values; all are sent (not de-duplicated).
-- **Test mode** — `Options.TestMode = true` exercises the pipeline without delivering.
-- **Tracking** — `Options.TrackingOpens` (on/off) and `Options.TrackingClicks`
-  (`ClickTracking.Yes`/`No`/`HtmlOnly`).
-- **Scheduled delivery** — `Options.DeliveryTime` (a `DateTimeOffset`) is sent as an **RFC 2822**
-  date-time with a **numeric** timezone offset (for example `Thu, 25 Jun 2026 14:00:00 +0000`), never
-  a named zone.
-- **Custom headers & variables** — `Options.CustomHeaders` (`h:` prefix; names are case-insensitive, like
-  mail headers) and `Options.CustomVariables` (`v:` prefix, string values; Mailgun truncates variables
-  above 4KB).
-- **Reply-To** — `message.ReplyTo = "support@example.com"` emits the `Reply-To` header.
-- **Delivery controls** — `RequireTls`, `SkipVerification`, `Tracking` (master toggle),
-  `TrackingPixelLocationTop`, `SendingIp`, `SendingIpPool`, `DeliverWithin`, `DeliveryTimeOptimizePeriod`,
-  `TimeZoneLocalize`, `Dkim`, `SecondaryDkim`/`SecondaryDkimPublic`, `ArchiveTo`, `SuppressHeaders`;
-  `MailgunMessage.AmpHtml` for an AMP part.
-
-> **16KB limit.** Mailgun caps the **combined** size of the option (`o:`), custom-header (`h:`),
-> custom-variable (`v:`), and template (`t:`) parameters at **16KB per request**. Mailgunner does not
-> enforce this client-side; exceeding it causes the service to reject the request, surfaced as a
-> `MailgunnerException` carrying the HTTP status code and response body.
-
-## Automatic retry & backoff
-
-Resilience is **on by default** — every outbound request (sends *and* suppressions, which share the
-typed `HttpClient`) is retried automatically on transient failures, so you don't write retry loops:
-
-```csharp
-services.AddMailgunner("mg.example.com", sendingKey, MailgunRegion.Us);
-// 429 / 408 / 5xx and transient transport failures are now retried automatically;
-// Retry-After is honored; a non-429 4xx still surfaces immediately.
-```
-
-- **Sends are special** — `POST /messages` is not idempotent, so by default a send is retried **only on 429**
-  (`Retry.SendRetryMode = SendRetryMode.Safe`). Set `SendRetryMode.Full` to retry sends on 408/5xx and transport
-  faults too, accepting the risk of duplicate delivery. Suppression and webhook requests always use the full policy.
-- **Retried** — HTTP `429`, `408`, and any `5xx`, plus transport-level faults with no response
-  (timeout, connection reset/refused, DNS failure).
-- **Never retried** — a non-`429` `4xx` (for example `400`/`401`/`403`/`404`) surfaces immediately as
-  a `MailgunnerException` after exactly one attempt, with no wait.
-- **Backoff** — each computed wait grows exponentially with bounded additive jitter, so successive
-  waits are strictly increasing and desynchronized across callers.
-- **`Retry-After`** — when a retryable response carries `Retry-After` (delta-seconds **or** an
-  HTTP-date), that value takes precedence for the next wait.
-- **Mandatory cap** — *every* single wait is clamped to `MaxSingleWait`, so a hostile or far-future
-  `Retry-After` cannot stall a send.
-- **Bounded & observable** — the retry budget is finite; when it is exhausted the final failure
-  surfaces unchanged as a single `MailgunnerException` (last status + body) and a Warning record is
-  logged (status and attempt count only — never the sending key or request body).
-- **Cancelable** — the caller's `CancellationToken` abandons a pending wait promptly.
-
-A first-attempt success makes exactly one attempt with zero waiting, and an eventual success is
-indistinguishable from one.
-
-Tuning is optional (the defaults are production-ready):
-
-```csharp
-services.AddMailgunner(o =>
-{
-    o.Domain = "mg.example.com";
-    o.SendingKey = sendingKey;
-    o.Region = MailgunRegion.Us;
-    o.Retry.MaxRetryAttempts = 3;                       // retries after the first attempt (>= 0; 0 disables)
-    o.Retry.BaseDelay = TimeSpan.FromMilliseconds(500); // starting backoff (> 0)
-    o.Retry.MaxSingleWait = TimeSpan.FromSeconds(30);   // mandatory cap on any single wait (>= BaseDelay)
-    o.Retry.UseJitter = true;                           // bounded additive jitter
-    o.Retry.SendRetryMode = SendRetryMode.Safe;         // Safe (429 only) or Full
-    o.Retry.AttemptTimeout = TimeSpan.FromSeconds(100);  // cap on a single attempt, up to the response headers
-});
-```
-
-The typed `HttpClient.Timeout` is set to the worst case over every attempt and wait,
-`(MaxRetryAttempts + 1) × AttemptTimeout + MaxRetryAttempts × MaxSingleWait` (490 s with the defaults), so a
-stalled response body, which `HttpClient` reads outside the per-attempt timeout, can never hang a caller
-that passed no `CancellationToken`.
-
-## Suppression lists
-
-Mailgun maintains three suppression lists per domain — **bounces**, **unsubscribes**, and
-**complaints** — and Mailgunner exposes them through `client.Suppressions`. Unlike sending, these are
-JSON endpoints, and they are completely independent of the send pipeline. Each list
-(`Suppressions.Bounces`, `Suppressions.Unsubscribes`, `Suppressions.Complaints`) offers the same set of
-operations over its own typed entry (`Bounce`, `Unsubscribe`, `Complaint`):
-
-```csharp
-// List every entry — pagination is followed transparently (streams large lists).
-await foreach (Bounce b in client.Suppressions.Bounces.ListAsync(cancellationToken: ct))
-{
-    Console.WriteLine($"{b.Address} {b.Code} {b.CreatedAt:u}");
-}
-
-// Optional page size cuts round-trips on big lists (applied to the first request only).
-await foreach (Unsubscribe u in client.Suppressions.Unsubscribes.ListAsync(pageSize: 1000, cancellationToken: ct)) { }
-
-// Caller-driven paging via the single-page primitive and its opaque cursor.
-SuppressionPage<Complaint> page = await client.Suppressions.Complaints.ListPageAsync(ct);
-while (page.HasMore)
-{
-    page = await client.Suppressions.Complaints.ListPageAsync(page.NextCursor!, ct);
-}
-
-await client.Suppressions.Unsubscribes.AddAsync(
-    new Unsubscribe { Address = "user@example.com", Tags = new[] { "newsletter" } }, ct);
-Bounce one = await client.Suppressions.Bounces.GetAsync("user@example.com", ct); // 404 → MailgunnerException
-await client.Suppressions.Bounces.RemoveAsync("user@example.com", ct);            // remove one address
-await client.Suppressions.Complaints.ClearAsync(ct);                              // clear the whole list
-```
-
-- **`ListAsync`** is the ergonomic default: it returns an `IAsyncEnumerable<T>` and follows the service's
-  next pointer across pages until the list is exhausted. **`ListPageAsync`** returns one
-  `SuppressionPage<T>` (its `Items` plus an opaque `NextCursor`) for callers that drive paging themselves.
-- An optional **page size** is applied only to the first request; subsequent pages follow the service's
-  next pointer verbatim.
-- **`AddAsync`** sends the address plus that list's optional fields (a bounce's `Code`/`Error`, an
-  unsubscribe's `Tags`) as JSON. **`AddRangeAsync`** sends many entries as a JSON array (chunked by 1000
-  per request). **`RemoveAsync`** deletes a single address; **`ClearAsync`** deletes every entry on the
-  list.
-- Any non-success response — including a not-found `GetAsync`/`RemoveAsync` — surfaces a
-  `MailgunnerException` carrying the HTTP status code and raw response body.
-
-## Domain webhooks
-
-`client.Webhooks` manages the callback URLs Mailgun invokes for each delivery event of the domain
-(Mailgun's v3 domain-webhook endpoints). A registration is keyed by one `WebhookEventType` (`Accepted`,
-`Delivered`, `Opened`, `Clicked`, `Unsubscribed`, `Complained`, `PermanentFail`, `TemporaryFail`) and
-carries up to three absolute `http(s)` URLs:
-
-```csharp
-await client.Webhooks.CreateAsync(WebhookEventType.Delivered, new[] { "https://app.example.com/hooks/mailgun" }, ct);
-await client.Webhooks.CreateAsync(new[] { WebhookEventType.Complained, WebhookEventType.Unsubscribed }, "https://app.example.com/hooks/mailgun", ct);
-IReadOnlyList<WebhookRegistration> all = await client.Webhooks.ListAsync(ct);
-WebhookRegistration one = await client.Webhooks.GetAsync(WebhookEventType.Delivered, ct); // 404 → MailgunnerException
-await client.Webhooks.UpdateAsync(WebhookEventType.Delivered, new[] { "https://app.example.com/hooks/v2" }, ct);
-await client.Webhooks.DeleteAsync(WebhookEventType.Delivered, ct);
-```
-
-The multi-event overload issues one create per distinct event type, in order, and is fail-fast with no
-rollback. A URL that is not an absolute `http`/`https` URL is rejected with `ArgumentException` before any
-request.
-
-## Webhook signature verification
-
-Mailgun signs each event webhook (bounces, complaints, unsubscribes) so consumers can confirm it
-genuinely came from Mailgun before acting on it. Acting on a forged event would corrupt your
-suppression state and reputation handling, so verify first. `MailgunWebhookSignature.Verify` is a
-pure, network-free primitive — no client, no dependency injection, no state:
-
-```csharp
-using Mailgunner;
-
-// Extract the three signed fields from the incoming webhook request (you own the parsing),
-// and supply YOUR webhook signing key from configuration — the webhook signing key, not the
-// sending key, and never hard-coded.
-bool authentic = MailgunWebhookSignature.Verify(
-    signingKey: configuration["Mailgun:WebhookSigningKey"]!,
-    timestamp:  timestamp,
-    token:      token,
-    signature:  signature);
-
-if (!authentic)
-    return Results.Unauthorized(); // forged or tampered — do not touch suppression state
-```
-
-- The signature is validated as the **HMAC-SHA256** of `timestamp + token`, keyed by your signing
-  key and rendered as lowercase hexadecimal. The comparison is **constant-time** — it never
-  short-circuits on the first differing character, so timing reveals nothing about how many leading
-  characters matched.
-- Only the **signing key** is a precondition: a `null`, empty, or whitespace `signingKey` throws
-  `ArgumentException` (a configuration error). Every malformed or missing webhook-supplied field — a
-  `null` timestamp/token, or a `null`, empty, wrong-length, or non-hexadecimal signature — returns
-  `false` rather than throwing.
-- Verification answers only "was this signed with the signing key?". Pass `maxAge` (e.g.
-  `TimeSpan.FromMinutes(5)`) to the second overload to also reject stale or future timestamps;
-  token-reuse tracking remains yours:
-
-```csharp
-bool authentic = MailgunWebhookSignature.Verify(
-    signingKey: configuration["Mailgun:WebhookSigningKey"]!,
-    timestamp:  timestamp,
-    token:      token,
-    signature:  signature,
-    maxAge:     TimeSpan.FromMinutes(5));
-```
-
-## Limitations & notes
-
-- **No trimming/AOT guarantee.** Template and recipient variables (`t:variables`, `recipient-variables`) are
-  serialized with reflection-based `System.Text.Json`; in a Native AOT app that path throws at runtime. The
-  suppression and webhook DTOs use source generation and are unaffected.
-- **Duplicate delivery vs. retries.** A send is retried only on HTTP 429 by default (`SendRetryMode.Safe`); with
-  `SendRetryMode.Full` a lost response can lead to the same message being delivered twice.
-- **Timeouts.** Each attempt is bounded by `Retry.AttemptTimeout` up to the response headers; the typed
-  `HttpClient.Timeout` bounds the whole call, body reads included, at
-  `(MaxRetryAttempts + 1) × AttemptTimeout + MaxRetryAttempts × MaxSingleWait`.
-- **Transport failures are not `MailgunnerException`.** A response, success or failure, always maps to a
-  result or a `MailgunnerException`. When no response is obtained, the underlying exception surfaces after
-  the retry budget: `HttpRequestException` (connection/DNS), `TimeoutException` (an attempt exceeded
-  `AttemptTimeout`), or `TaskCanceledException` (the overall `HttpClient.Timeout` elapsed).
-- **Batch failures.** `SendBatchAsync` is fail-fast; `MailgunnerException.AcceptedResults` / `FailedChunkIndex`
-  tell you which chunks were already accepted so you can resume from the failed one.
-- **16KB parameter cap** on `o:`/`h:`/`v:`/`t:` fields is not enforced client-side (see
-  [Send options & limits](#send-options--limits)).
-
-## Building from source
-
-Requires a [.NET SDK](https://dotnet.microsoft.com/download) matching `global.json`
-(a `slnx`-capable SDK; .NET 10 recommended).
-
-```bash
-dotnet restore
-dotnet build Mailgunner.slnx -c Release
-dotnet test Mailgunner.slnx -c Release
-```
-
-Tests run fully offline — no network access or Mailgun credentials are required.
-
-Live integration tests (`tests/Mailgunner.IntegrationTests`) run only when the `Mailgun__*`
-variables from the [sample section](#run-the-sample) are set; without them every test reports
-`Skipped` and the suite stays green. They are not part of `Mailgunner.slnx`'s CI/release runs —
-CI and the release workflow invoke `dotnet test` scoped to the offline projects only — so opting
-in is a manual, local `dotnet test tests/Mailgunner.IntegrationTests` with the environment
-variables exported. Sends use `MailgunSendOptions.TestMode`, so nothing is actually delivered,
-and every test removes whatever suppression entry or webhook it created, even when it fails
-partway; the webhook test restores (rather than deletes) any registration that already existed
-for the event type it exercises, since a webhook is a single whole-domain registration per event
-type with no way to namespace it — run these against a sandbox/test domain, not one serving real
-traffic on that event type.
-
-## Project layout
-
-| Path | Purpose |
-|------|---------|
-| `src/Mailgunner/` | The publishable library. |
-| `tests/Mailgunner.Tests/` | Offline xUnit test suite. |
-| `tests/Mailgunner.NetFxTests/` | net48 tests exercising the netstandard2.0 build (Windows CI leg). |
-| `tests/Mailgunner.IntegrationTests/` | Opt-in live tests against a real Mailgun account (see above). |
-| `Directory.Build.props` | Shared build/quality/package settings. |
-| `Directory.Packages.props` | Central Package Management (pinned versions). |
-| `.editorconfig` | Build-enforced style & analyzer rules. |
-
-## Documentation & history
+This console example also uses the `Microsoft.Extensions.Hosting` package. Supply the key through
+configuration or `Mailgun__SendingKey`; use the region and sender domain configured in your account.
+
+## Documentation
+
+Full documentation lives in the repository; every link below is absolute so it also works from the
+NuGet package page.
+
+| Guide | What it covers |
+|---|---|
+| [Getting started](https://github.com/gberikov/Mailgunner/blob/master/docs/getting-started.md) | Installation, registration and DI, which credential each operation needs, regions, running the sample. |
+| [Sending messages](https://github.com/gberikov/Mailgunner/blob/master/docs/sending.md) | Personalized batches from a stored template, attachments and per-send options, the 16KB cap, recovering batch progress. |
+| [Multiple named clients](https://github.com/gberikov/Mailgunner/blob/master/docs/named-clients.md) | Several Mailgun identities in one application, each with its own domain, key, region and retry settings. |
+| [Automatic retry & backoff](https://github.com/gberikov/Mailgunner/blob/master/docs/retry.md) | What is retried and what is not, `SendRetryMode`, `Retry-After`, the mandatory wait cap, tuning. |
+| [Suppression lists](https://github.com/gberikov/Mailgunner/blob/master/docs/suppressions.md) | Bounces, unsubscribes and complaints — list, get, add, remove, clear, and how paging works. |
+| [Webhooks](https://github.com/gberikov/Mailgunner/blob/master/docs/webhooks.md) | Managing domain webhook registrations, and verifying incoming webhook signatures. |
+| [Limitations & API coverage](https://github.com/gberikov/Mailgunner/blob/master/docs/limitations.md) | Trimming/AOT, duplicate delivery, timeouts, large imports — and which Mailgun endpoints are implemented. |
+| [Building from source](https://github.com/gberikov/Mailgunner/blob/master/docs/contributing.md) | Build and test commands, opt-in live integration tests, project layout. |
+| [Releasing](https://github.com/gberikov/Mailgunner/blob/master/docs/RELEASING.md) | How a version is tagged and published. |
+
+## Changelog & license
 
 - Changes are recorded in [CHANGELOG.md](https://github.com/gberikov/Mailgunner/blob/master/CHANGELOG.md) (Keep a Changelog format).
 - Licensed under the [MIT License](https://github.com/gberikov/Mailgunner/blob/master/LICENSE).

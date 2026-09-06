@@ -1,12 +1,19 @@
 namespace Mailgunner;
 
 /// <summary>
-/// The closed set of Mailgun delivery events a domain webhook can be registered for. A webhook is keyed
+/// The known Mailgun delivery events a domain webhook can be registered for, plus a sentinel for future
+/// response tokens. A webhook is keyed
 /// by exactly one of these event types and carries one or more callback URLs Mailgun invokes when the
 /// event occurs.
 /// </summary>
 public enum WebhookEventType
 {
+    /// <summary>
+    /// An unrecognized response token. See <see cref="WebhookRegistration.EventToken"/> for its exact
+    /// value. This sentinel cannot be used to create, update, read, or delete a registration.
+    /// </summary>
+    Unknown = -1,
+
     /// <summary>The message was delivered (<c>delivered</c>).</summary>
     Delivered,
 

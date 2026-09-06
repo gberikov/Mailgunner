@@ -80,13 +80,9 @@ coverage*.info
 *.userprefs
 *.rsuser
 
-# Claude Code
+# Claude Code — CLAUDE.md is tracked; local overrides and machine state are not
 .claude/
-CLAUDE.md
 CLAUDE.local.md
 .claude.json
 .mcp.json
-
-# Spec Kit (Speckit)
-.specify/
-.speckit/
+.superpowers/

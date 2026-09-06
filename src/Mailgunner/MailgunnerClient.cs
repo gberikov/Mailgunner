@@ -61,16 +61,25 @@ internal sealed class MailgunnerClient : IMailgunnerClient
         var chunkIndex = 0;
         foreach (var chunk in MailgunBatchContent.Chunk(message.Recipients, MailgunBatchContent.MaxRecipientsPerRequest))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            using var content = MailgunBatchContent.BuildChunk(message, chunk);
+            var requestStarted = false;
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                using var content = MailgunBatchContent.BuildChunk(message, chunk);
+                cancellationToken.ThrowIfCancellationRequested();
+                requestStarted = true;
                 results.Add(await SendContentAsync(content, cancellationToken).ConfigureAwait(false));
             }
             catch (MailgunnerException ex)
             {
-                throw new MailgunnerException(ex.StatusCode, ex.ResponseBody, chunkIndex, results.AsReadOnly());
+                ex.SetBatchProgress(chunkIndex, results);
+                BatchSendProgress.Attach(ex, chunkIndex, results, requestStarted);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                BatchSendProgress.Attach(ex, chunkIndex, results, requestStarted);
+                throw;
             }
 
             chunkIndex++;

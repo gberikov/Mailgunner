@@ -48,7 +48,7 @@ public class NetStandardBuildTests
         var message = new MailgunMessage { From = "noreply@mg.example.com", Text = "Hi" };
         message.To.Add("alice@example.com");
 
-        var result = await client.SendAsync(message);
+        var result = await client.SendAsync(message, TestContext.Current.CancellationToken);
 
         Assert.Equal("<1@mg>", result.Id);
         Assert.Contains("name=to", stub.Bodies[0]);
@@ -62,7 +62,7 @@ public class NetStandardBuildTests
             (HttpStatusCode.OK, "{\"items\":[{\"address\":\"a@x.com\",\"created_at\":\"Thu, 11 Dec 2025 01:49:40 UTC\"}],\"paging\":{}}"));
         var client = BuildClient(stub);
 
-        var page = await client.Suppressions.Bounces.ListPageAsync();
+        var page = await client.Suppressions.Bounces.ListPageAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(2, stub.Requests);
         Assert.Equal(new DateTimeOffset(2025, 12, 11, 1, 49, 40, TimeSpan.Zero), page.Items[0].CreatedAt);
@@ -96,7 +96,7 @@ public class NetStandardBuildTests
         var message = new MailgunMessage { From = "noreply@mg.example.com", Text = "Hi" };
         message.To.Add("alice@example.com");
 
-        await Assert.ThrowsAsync<MailgunnerException>(() => client.SendAsync(message));
+        await Assert.ThrowsAsync<MailgunnerException>(() => client.SendAsync(message, TestContext.Current.CancellationToken));
 
         Assert.Equal(1, stub.Requests);
     }

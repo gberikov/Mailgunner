@@ -1,0 +1,38 @@
+#!/bin/sh
+# Keeps master and develop on the git flow path: they take merges, not direct commits.
+#
+# The GitHub rulesets already forbid deleting or rewriting these branches server-side, so this
+# hook deliberately does NOT repeat that. It covers the one mistake the rulesets cannot see: a
+# commit made straight on master or develop and pushed, bypassing feature/release branches
+# entirely. Every legitimate tip of these branches is a merge commit — a squashed or rebased PR
+# merge is a merge commit too — so the check is simply "the tip has more than one parent".
+#
+# It is local: it works only where `git config core.hooksPath .githooks` has been run, which git
+# does not carry over from a clone. Re-run it after every clone.
+#
+# To bypass deliberately: git push --no-verify
+
+zero=0000000000000000000000000000000000000000
+status=0
+
+while read -r _local_ref local_sha remote_ref remote_sha; do
+    case "$remote_ref" in
+        refs/heads/master|refs/heads/develop) ;;
+        *) continue ;;
+    esac
+
+    # Deletions and rewrites are the rulesets' job; nothing new to push is fine.
+    [ "$local_sha" = "$zero" ] && continue
+    [ "$local_sha" = "$remote_sha" ] && continue
+
+    parents=$(git rev-list --parents -n 1 "$local_sha" | wc -w)
+    if [ "$parents" -lt 3 ]; then
+        branch=${remote_ref#refs/heads/}
+        echo "pre-push: $branch would end up on a non-merge commit ($(git rev-parse --short "$local_sha"))." >&2
+        echo "          $branch takes merges only — commit on a feature/*, bugfix/*, release/* or" >&2
+        echo "          hotfix/* branch and merge it in. Deliberate exception: git push --no-verify" >&2
+        status=1
+    fi
+done
+
+exit $status

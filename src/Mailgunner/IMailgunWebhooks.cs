@@ -14,7 +14,11 @@ public interface IMailgunWebhooks
     /// Lists every event type that has a webhook registration for the domain.
     /// </summary>
     /// <param name="cancellationToken">A token that cancels the request.</param>
-    /// <returns>One registration per registered event type; an empty list when none are configured.</returns>
+    /// <returns>
+    /// One registration per registered event type; an empty list when none are configured. Future event
+    /// types use <see cref="WebhookEventType.Unknown"/> and retain their <see cref="WebhookRegistration.EventToken"/>
+    /// and typed URLs.
+    /// </returns>
     /// <exception cref="MailgunnerException">The service returned a non-success response.</exception>
     Task<IReadOnlyList<WebhookRegistration>> ListAsync(
         CancellationToken cancellationToken = default);

@@ -49,6 +49,15 @@ internal sealed class MailgunnerOptionsValidator : IValidateOptions<MailgunnerOp
         }
         else
         {
+#if NET8_0_OR_GREATER
+            if (!Enum.IsDefined(retry.SendRetryMode))
+#else
+            if (!Enum.IsDefined(typeof(SendRetryMode), retry.SendRetryMode))
+#endif
+            {
+                failures.Add("A valid send retry mode must be specified (MailgunnerOptions.Retry.SendRetryMode): Safe or Full.");
+            }
+
             if (retry.MaxRetryAttempts < 0)
             {
                 failures.Add("The maximum retry attempts must be zero or greater (MailgunnerOptions.Retry.MaxRetryAttempts).");

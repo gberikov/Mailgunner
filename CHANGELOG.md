@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-06
+
+### Added
+
+- `BatchSendProgress.FromException` exposes accepted chunks, the failed chunk index, and whether its
+  HTTP send path started, for HTTP/transport errors, cancellation, and serialization failures without
+  replacing the original exception type.
+- `WebhookRegistration.EventToken` preserves future event names with typed URLs; their enum value is
+  `WebhookEventType.Unknown` (response-only).
+
+### Fixed
+
+- Stream attachments propagate cancellation and per-attempt timeouts to source copying on .NET 8/10.
+- Undefined `SendRetryMode` values fail validation instead of enabling full send retries.
+- Suppression reads reject missing item arrays and addresses; webhook reads reject missing envelopes
+  and malformed URL lists instead of silently returning empty or fabricated results.
+- AMP-only single messages and stored-template messages/batches that inherit the template's From
+  header are accepted by local validation.
+- Multi-event webhook creation validates all event types before creating any registration.
+- Suppression additions avoid a redundant chunk copy and observe cancellation during input validation.
+- README examples and guidance now cover management-key permissions, recipient-visible custom
+  variables, batch recovery, API coverage, and netstandard2.0 attachment cancellation limits.
+
 ## [0.1.1] - 2026-09-04
 
 ### Added
@@ -311,6 +334,7 @@ because the 0.1.0 entries above describe their changes relative to it.
   (not failed) when they are absent — and its credential-presence resolver is covered by an offline
   unit test, so the default build/test stay green with no credentials.
 
-[Unreleased]: https://github.com/gberikov/Mailgunner/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/gberikov/Mailgunner/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/gberikov/Mailgunner/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/gberikov/Mailgunner/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/gberikov/Mailgunner/releases/tag/v0.1.0

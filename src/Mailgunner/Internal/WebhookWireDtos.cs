@@ -18,6 +18,10 @@ internal sealed class WebhookUrlsDto
 /// </summary>
 internal sealed class WebhookEnvelopeDto
 {
+    /// <summary>Gets or sets the acknowledgement message returned by some create/update responses.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("message")]
+    public string? Message { get; set; }
+
     /// <summary>Gets or sets the single webhook's URL set.</summary>
     [System.Text.Json.Serialization.JsonPropertyName("webhook")]
     public WebhookUrlsDto? Webhook { get; set; }
@@ -65,8 +69,7 @@ internal static class WebhookEventTypes
 
     /// <summary>
     /// Parses a wire token into its <see cref="WebhookEventType"/>, or returns <see langword="null"/> for
-    /// an unrecognized token (so an unknown key in a list response is ignored rather than failing the
-    /// parse).
+    /// an unrecognized token. The registration retains the original token in that case.
     /// </summary>
     /// <param name="token">The wire token.</param>
     /// <returns>The event type, or <see langword="null"/> when the token is not a supported event.</returns>

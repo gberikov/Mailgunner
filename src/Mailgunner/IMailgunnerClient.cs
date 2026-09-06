@@ -43,8 +43,8 @@ public interface IMailgunnerClient
     /// </returns>
     /// <exception cref="ArgumentNullException"><paramref name="message"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">
-    /// The message is missing a sender, has no recipient across to/cc/bcc, or has no text or HTML
-    /// body. Thrown before any request is issued.
+    /// The message is missing a sender without a template, has no recipient across to/cc/bcc, or has no
+    /// text, HTML, AMP, or template body. Thrown before any request is issued.
     /// </exception>
     /// <exception cref="MailgunnerException">
     /// The service returned a non-success response, or a success response whose body could not be
@@ -57,7 +57,7 @@ public interface IMailgunnerClient
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Sends one personalized stored-template message to a large recipient list, automatically
+    /// Sends one personalized stored-template or inline-body message to a large recipient list, automatically
     /// splitting it into the fewest possible <c>multipart/form-data</c> requests (chunks of at most
     /// 1000 recipients, <c>ceil(N / 1000)</c> requests). Each request reuses the same template and
     /// global variables and carries a <c>recipient-variables</c> object keyed by recipient address, so
@@ -72,7 +72,8 @@ public interface IMailgunnerClient
     /// </returns>
     /// <exception cref="ArgumentNullException"><paramref name="message"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">
-    /// The batch is missing a sender, is missing a template, or contains a duplicate recipient address.
+    /// The batch is missing a sender without a template, has neither a template nor an inline body,
+    /// or contains a duplicate recipient address.
     /// Thrown before any request is issued.
     /// </exception>
     /// <exception cref="MailgunnerException">
@@ -83,6 +84,13 @@ public interface IMailgunnerClient
     /// </exception>
     /// <exception cref="HttpRequestException">A chunk obtained no response because of a transport fault (see the type remarks); earlier chunks are not rolled back.</exception>
     /// <exception cref="TimeoutException">A chunk obtained no response within <see cref="RetryPolicyOptions.AttemptTimeout"/> (see the type remarks); earlier chunks are not rolled back.</exception>
+    /// <remarks>
+    /// Use <see cref="BatchSendProgress.FromException"/> on any exception raised during chunk processing,
+    /// including transport failures, cancellation, and serialization errors, to recover prior accepted
+    /// chunks. Initial validation failures have no progress. Exception types remain unchanged. A chunk
+    /// that entered the send path may have been accepted even if its response was lost or malformed;
+    /// do not automatically resend it based only on the exception.
+    /// </remarks>
     Task<IReadOnlyList<SendResult>> SendBatchAsync(
         MailgunBatchMessage message,
         CancellationToken cancellationToken = default);
