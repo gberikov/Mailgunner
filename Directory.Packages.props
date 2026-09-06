@@ -20,7 +20,7 @@
     <!-- `dotnet test` always launches a Microsoft.Testing.Platform app asking for a TRX report;
          without this extension that option is unknown and the run aborts with "Zero tests ran"
          before discovery. Version tracks the Microsoft.Testing.Platform that xunit.v3 pins. -->
-    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.3.3" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.0" />
     <!-- Test-only: builds an in-memory IConfiguration to exercise the named config-section overload. -->
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.11" />
     <!-- Test-only: net48 reference assemblies, so tests/Mailgunner.NetFxTests compiles on a runner
