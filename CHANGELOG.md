@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-06
+
 ### Added
 
 - `BatchSendProgress.FromException` exposes accepted chunks, the failed chunk index, and whether its
@@ -332,6 +334,7 @@ because the 0.1.0 entries above describe their changes relative to it.
   (not failed) when they are absent — and its credential-presence resolver is covered by an offline
   unit test, so the default build/test stay green with no credentials.
 
-[Unreleased]: https://github.com/gberikov/Mailgunner/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/gberikov/Mailgunner/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/gberikov/Mailgunner/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/gberikov/Mailgunner/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/gberikov/Mailgunner/releases/tag/v0.1.0
