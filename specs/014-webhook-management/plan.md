@@ -31,7 +31,7 @@ additive (SemVer **MINOR**) with full XML docs and a CHANGELOG entry.
 > per event type) is the **v3** API; the real **v4** surface is URL-centric (one URL ↔ many event types,
 > on the collection root) with no `GET` and no `.../{name}` endpoints, and cannot back the stories as
 > written. The constitution was corrected to v3 (v1.4.0) and the spec aligned, both in this change. See
-> [research.md](./research.md) §1.
+> the constitution v1.4.0 change for the rationale.
 
 ## Technical Context
 
