@@ -12,8 +12,11 @@ public sealed class MailgunnerOptions
     public string Domain { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the Mailgun sending key used for HTTP Basic authentication. Required, and
+    /// Gets or sets the Mailgun API key used for HTTP Basic authentication. Required, and
     /// treated as a secret: supply it from configuration or environment, never hard-coded.
+    /// Prefer a Domain Sending Key for sending-only clients. Suppression and webhook management
+    /// require an API key with the corresponding permissions; a Domain Sending Key cannot authorize
+    /// those operations. The property name is retained for compatibility.
     /// </summary>
     public string SendingKey { get; set; } = string.Empty;
 
