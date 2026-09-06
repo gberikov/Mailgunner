@@ -113,12 +113,7 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
             cancellationToken).ConfigureAwait(false);
 
         var dto = MailgunHttp.Deserialize(body, _entryTypeInfo, status);
-        if (dto is null)
-        {
-            throw new MailgunnerException(status, body);
-        }
-
-        return _project(dto);
+        return ProjectEntry(dto, status, body);
     }
 
     /// <summary>The Mailgun-documented maximum number of add entries accepted per JSON-array request.</summary>
@@ -147,6 +142,7 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
         var bodies = new List<TAddDto>();
         foreach (var entry in entries)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (entry is null || string.IsNullOrWhiteSpace(_addressOf(entry)))
             {
                 throw new ArgumentException("Every entry must be non-null with a non-blank address.", nameof(entries));
@@ -155,12 +151,12 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
             bodies.Add(_toAddBody(entry));
         }
 
-        foreach (var chunk in MailgunBatchContent.Chunk(bodies, MaxAddPerRequest))
+        for (var start = 0; start < bodies.Count; start += MaxAddPerRequest)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             var json = System.Text.Json.JsonSerializer.Serialize(
-                new List<TAddDto>(chunk), _addTypeInfo);
+                bodies.GetRange(start, Math.Min(MaxAddPerRequest, bodies.Count - start)), _addTypeInfo);
             var request = new HttpRequestMessage(HttpMethod.Post, RootUri())
             {
                 Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json"),
@@ -265,15 +261,33 @@ internal sealed class MailgunSuppressionList<TEntry, TDto, TAddDto> : ISuppressi
             cancellationToken).ConfigureAwait(false);
 
         var page = MailgunHttp.Deserialize(body, _pageTypeInfo, status);
-        var items = new List<TEntry>();
-        if (page?.Items is not null)
+        if (page?.Items is null)
         {
-            foreach (var dto in page.Items)
-            {
-                items.Add(_project(dto));
-            }
+            throw new MailgunnerException(status, body);
         }
 
-        return new SuppressionPage<TEntry>(items, page?.Paging?.Next);
+        var items = new List<TEntry>(page.Items.Count);
+        foreach (var dto in page.Items)
+        {
+            items.Add(ProjectEntry(dto, status, body));
+        }
+
+        return new SuppressionPage<TEntry>(items, page.Paging?.Next);
+    }
+
+    private TEntry ProjectEntry(TDto? dto, int status, string body)
+    {
+        if (dto is null)
+        {
+            throw new MailgunnerException(status, body);
+        }
+
+        var entry = _project(dto);
+        if (string.IsNullOrWhiteSpace(_addressOf(entry)))
+        {
+            throw new MailgunnerException(status, body);
+        }
+
+        return entry;
     }
 }

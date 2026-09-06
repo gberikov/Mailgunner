@@ -14,6 +14,9 @@ public class WebhookIndependenceTests
     public async Task Full_crud_round_trip_works_without_any_send_and_targets_only_webhook_endpoints()
     {
         var (client, stub) = WebhookHarness.BuildClient(HttpStatusCode.OK, WebhookHarness.Envelope("https://a"));
+        stub.ResponseSelector = index => index == 1
+            ? (HttpStatusCode.OK, "{\"webhooks\":{\"delivered\":{\"urls\":[\"https://a\"]}}}")
+            : null;
 
         var createUrls = new[] { "https://a" };
         var updateUrls = new[] { "https://b" };

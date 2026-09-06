@@ -32,20 +32,27 @@ internal sealed class MailgunWebhooks : IMailgunWebhooks
             cancellationToken).ConfigureAwait(false);
 
         var dto = MailgunHttp.Deserialize(body, WebhookJsonContext.Default.WebhookListDto, status);
-        var result = new List<WebhookRegistration>();
-        if (dto?.Webhooks is not null)
+        if (dto?.Webhooks is null)
         {
-            foreach (var pair in dto.Webhooks)
-            {
-                var eventType = WebhookEventTypes.TryParseToken(pair.Key);
-                var urls = pair.Value?.Urls;
-                if (eventType is null || urls is null || urls.Count == 0)
-                {
-                    continue;
-                }
+            throw new MailgunnerException(status, body);
+        }
 
-                result.Add(new WebhookRegistration(eventType.Value, urls));
+        var result = new List<WebhookRegistration>(dto.Webhooks.Count);
+        foreach (var pair in dto.Webhooks)
+        {
+            var urls = pair.Value?.Urls;
+            if (urls is null || string.IsNullOrWhiteSpace(pair.Key))
+            {
+                throw new MailgunnerException(status, body);
             }
+
+            if (urls.Count == 0)
+            {
+                continue;
+            }
+
+            ValidateResponseUrls(urls, status, body);
+            result.Add(new WebhookRegistration(pair.Key, urls));
         }
 
         return result;
@@ -109,6 +116,7 @@ internal sealed class MailgunWebhooks : IMailgunWebhooks
         var seen = new HashSet<WebhookEventType>();
         foreach (var eventType in eventTypes)
         {
+            _ = WebhookEventTypes.ToToken(eventType);
             if (seen.Add(eventType))
             {
                 types.Add(eventType);
@@ -226,7 +234,7 @@ internal sealed class MailgunWebhooks : IMailgunWebhooks
         var envelope = MailgunHttp.Deserialize(body, WebhookJsonContext.Default.WebhookEnvelopeDto, status);
         if (envelope?.Webhook is null)
         {
-            if (fallbackUrls is not null)
+            if (fallbackUrls is not null && !string.IsNullOrWhiteSpace(envelope?.Message))
             {
                 return new WebhookRegistration(eventType, fallbackUrls);
             }
@@ -234,10 +242,25 @@ internal sealed class MailgunWebhooks : IMailgunWebhooks
             throw new MailgunnerException(status, body);
         }
 
-        var urls = envelope.Webhook.Urls is { Count: > 0 }
-            ? (IReadOnlyList<string>)envelope.Webhook.Urls
-            : fallbackUrls ?? (IReadOnlyList<string>)Array.Empty<string>();
+        var urls = envelope.Webhook.Urls;
+        ValidateResponseUrls(urls, status, body);
+        return new WebhookRegistration(eventType, urls!);
+    }
 
-        return new WebhookRegistration(eventType, urls);
+    private static void ValidateResponseUrls(List<string>? urls, int status, string body)
+    {
+        if (urls is null || urls.Count == 0)
+        {
+            throw new MailgunnerException(status, body);
+        }
+
+        foreach (var url in urls)
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)
+                || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+            {
+                throw new MailgunnerException(status, body);
+            }
+        }
     }
 }

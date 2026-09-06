@@ -34,7 +34,7 @@ public class BatchValidationTests
     public async Task Missing_sender_throws_argument_exception_and_issues_no_request()
     {
         var (client, stub) = BuildClient();
-        var batch = new MailgunBatchMessage { Template = "conference-invite" };
+        var batch = new MailgunBatchMessage { Text = "Hello" };
         batch.Recipients.Add(new BatchRecipient(new EmailAddress("alice@example.com")));
 
         await Assert.ThrowsAsync<ArgumentException>(() => client.SendBatchAsync(batch));
