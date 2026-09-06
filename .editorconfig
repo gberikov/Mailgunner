@@ -73,6 +73,15 @@ dotnet_diagnostic.CA1707.severity = none
 # Test projects do not generate a documentation file, which IDE0005-on-build requires.
 dotnet_diagnostic.IDE0005.severity = suggestion
 
+# --- Offline suite only: xUnit1051 (pass TestContext.Current.CancellationToken) ---
+# The rule exists so a hung test can be cancelled by the runner instead of stalling the run.
+# Mailgunner.Tests never touches the network — every request is answered by a fake
+# HttpMessageHandler — so nothing here can hang except a bug, which is worth surfacing as a
+# stall rather than a silent cancellation. It stays an error in Mailgunner.IntegrationTests,
+# where the calls are real. Revisit if this project ever gains a genuinely blocking test.
+[tests/Mailgunner.Tests/**/*.cs]
+dotnet_diagnostic.xUnit1051.severity = none
+
 # --- Sample project: a runnable example, not a packable assembly ---
 [samples/**/*.cs]
 # The sample does not generate a documentation file, which IDE0005-on-build requires.

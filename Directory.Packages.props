@@ -11,18 +11,16 @@
     (constitution Principle I scopes to runtime dependencies).
   -->
   <ItemGroup>
-    <PackageVersion Include="MinVer" Version="7.0.0" />
+    <PackageVersion Include="MinVer" Version="8.0.0" />
   </ItemGroup>
 
   <!-- Test stack -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
-    <PackageVersion Include="xunit" Version="2.9.3" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
-    <!-- Test-only: tests/Mailgunner.IntegrationTests uses [SkippableFact]/Skip.If so an unconfigured
-         run reports Skipped rather than a vacuously "passed" test with no assertions. -->
-    <PackageVersion Include="Xunit.SkippableFact" Version="1.5.85" />
-    <PackageVersion Include="coverlet.collector" Version="10.0.1" />
+    <PackageVersion Include="xunit.v3" Version="4.0.0" />
+    <!-- `dotnet test` always launches a Microsoft.Testing.Platform app asking for a TRX report;
+         without this extension that option is unknown and the run aborts with "Zero tests ran"
+         before discovery. Version tracks the Microsoft.Testing.Platform that xunit.v3 pins. -->
+    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.3.3" />
     <!-- Test-only: builds an in-memory IConfiguration to exercise the named config-section overload. -->
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.11" />
     <!-- Test-only: net48 reference assemblies, so tests/Mailgunner.NetFxTests compiles on a runner
@@ -43,7 +41,7 @@
     <!-- Required by the public API surface on netstandard2.0, not merely chosen: TimeProvider is
          in-box on net8.0 but on netstandard2.0 it is defined by this package, which otherwise only
          arrives transitively (and unpinned) through Polly.Core. See Mailgunner.csproj. -->
-    <PackageVersion Include="Microsoft.Bcl.TimeProvider" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Bcl.TimeProvider" Version="8.0.1" />
   </ItemGroup>
 
   <!--

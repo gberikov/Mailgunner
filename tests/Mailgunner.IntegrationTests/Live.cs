@@ -4,7 +4,7 @@ namespace Mailgunner.IntegrationTests;
 
 /// <summary>
 /// Reads live credentials from the environment. When any is absent, <see cref="Client"/> is null and every
-/// test reports Skipped via <c>Skip.If</c>, so the suite is green with no secrets and never runs in CI.
+/// test reports Skipped via <c>Assert.Skip</c>, so the suite is green with no secrets and never runs in CI.
 /// </summary>
 internal static class Live
 {
