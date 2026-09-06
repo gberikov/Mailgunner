@@ -21,7 +21,7 @@ Build and test:
 
 ```bash
 dotnet build Mailgunner.slnx -c Release
-dotnet test Mailgunner.slnx -c Release
+dotnet test --solution Mailgunner.slnx -c Release
 ```
 
 Warnings are errors and nullable reference types are on. A change that only compiles with a

@@ -7,7 +7,7 @@ Requires a [.NET SDK](https://dotnet.microsoft.com/download) matching `global.js
 ```bash
 dotnet restore
 dotnet build Mailgunner.slnx -c Release
-dotnet test Mailgunner.slnx -c Release
+dotnet test --solution Mailgunner.slnx -c Release
 ```
 
 Tests run fully offline — no network access or Mailgun credentials are required.
@@ -16,7 +16,7 @@ Live integration tests (`tests/Mailgunner.IntegrationTests`) run only when the `
 variables from the [sample section](https://github.com/gberikov/Mailgunner/blob/master/docs/getting-started.md#run-the-sample) are set; without them every test reports
 `Skipped` and the suite stays green. They are not part of `Mailgunner.slnx`'s CI/release runs —
 CI and the release workflow invoke `dotnet test` scoped to the offline projects only — so opting
-in is a manual, local `dotnet test tests/Mailgunner.IntegrationTests` with the environment
+in is a manual, local `dotnet test --project tests/Mailgunner.IntegrationTests` with the environment
 variables exported. Sends use `MailgunSendOptions.TestMode`, so nothing is actually delivered,
 and every test removes whatever suppression entry or webhook it created, even when it fails
 partway; the webhook test restores (rather than deletes) any registration that already existed
