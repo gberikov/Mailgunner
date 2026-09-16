@@ -35,7 +35,7 @@
   -->
   <ItemGroup>
     <PackageVersion Include="System.Text.Json" Version="8.0.6" />
-    <PackageVersion Include="Polly.Core" Version="8.7.0" />
+    <PackageVersion Include="Polly.Core" Version="8.8.0" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="8.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
     <!-- Required by the public API surface on netstandard2.0, not merely chosen: TimeProvider is
