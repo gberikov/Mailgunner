@@ -16,7 +16,7 @@
 
   <!-- Test stack -->
   <ItemGroup>
-    <PackageVersion Include="xunit.v3" Version="4.0.0" />
+    <PackageVersion Include="xunit.v3" Version="4.0.1" />
     <!-- `dotnet test` always launches a Microsoft.Testing.Platform app asking for a TRX report;
          without this extension that option is unknown and the run aborts with "Zero tests ran"
          before discovery. Version tracks the Microsoft.Testing.Platform that xunit.v3 pins. -->
