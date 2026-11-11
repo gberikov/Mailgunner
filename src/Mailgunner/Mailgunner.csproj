@@ -38,6 +38,7 @@
       Build-time-only: derives the package version from the `v*` git tag.
       PrivateAssets="all" keeps MinVer out of the published package's dependency graph.
     -->
+    <PackageReference Include="Microsoft.Extensions.Configuration" VersionOverride="11.0.0" />
     <PackageReference Include="MinVer" PrivateAssets="all" />
   </ItemGroup>
 

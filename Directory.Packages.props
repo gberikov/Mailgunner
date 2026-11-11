@@ -22,7 +22,7 @@
          before discovery. Version tracks the Microsoft.Testing.Platform that xunit.v3 pins. -->
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.3.3" />
     <!-- Test-only: builds an in-memory IConfiguration to exercise the named config-section overload. -->
-    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="11.0.0" />
     <!-- Test-only: net48 reference assemblies, so tests/Mailgunner.NetFxTests compiles on a runner
          (e.g. Linux) that has no .NET Framework 4.8 targeting pack installed. -->
     <PackageVersion Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" />
