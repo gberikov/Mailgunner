@@ -49,7 +49,7 @@
     Mailgunner package or its dependency set (constitution Principle I scopes to the library).
   -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="11.0.0" />
   </ItemGroup>
 
 </Project>
